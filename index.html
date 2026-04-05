@@ -1303,7 +1303,7 @@ function poblarLogin() {
   const sel = document.getElementById('sel-usuario');
   sel.innerHTML = '<option value="">Seleccioná...</option>';
   datos.usuarios
-    .filter(u => (u.activo === 'SI' || u.activo === true) && u.rol !== 'Directora')
+    .filter(u => (u.activo === 'SI' || u.activo === true) && u.rol.toLowerCase() !== 'directora')
     .forEach(u => {
       const opt = document.createElement('option');
       opt.value = u.nombre;
@@ -1322,7 +1322,7 @@ function login() {
 
   let usuario;
   if (rolSeleccionado === 'directora') {
-    usuario = datos.usuarios.find(u => u.rol === 'Directora');
+    usuario = datos.usuarios.find(u => u.rol.toLowerCase() === 'directora');
     if (!usuario || String(usuario.password) !== pass) { err.textContent = 'Contraseña incorrecta'; err.style.display = 'block'; return; }
   } else {
     const nombre = document.getElementById('sel-usuario').value;
@@ -1336,10 +1336,10 @@ function login() {
   document.getElementById('screen-inicio').style.display = 'none';
   document.getElementById('screen-app').style.display = 'flex';
   document.getElementById('tb-name').textContent = usuario.nombre;
-  document.getElementById('tb-role').textContent = usuario.rol === 'Directora' ? 'Dirección' : 'Preceptor/a';
+  document.getElementById('tb-role').textContent = usuario.rol.toLowerCase() === 'directora' ? 'Dirección' : 'Preceptor/a';
   document.getElementById('tb-avatar').textContent = usuario.nombre[0].toUpperCase();
 
-  if (usuario.rol === 'Directora') initDirectora();
+  if (usuario.rol.toLowerCase() === 'directora') initDirectora();
   else initPreceptor();
 }
 
