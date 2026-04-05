@@ -1225,7 +1225,7 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby6Cpk8yXUDPbIhVKcO0
 let datos = { usuarios: [], cursos: [], alumnos: [] };
 let currentUser = null;
 let attendance = {};
-let allRegistros = JSON.parse(localStorage.getItem('cens_registros_v2') || '[]'); // cache local, se reemplaza con Sheet
+let allRegistros = [];
 
 // =============================================
 // CARGA INICIAL DESDE GOOGLE SHEETS
@@ -1239,14 +1239,11 @@ async function cargarRegistrosDesdeSheet() {
     const json = await res.json();
     if (json.status === 'ok' && json.registros) {
       allRegistros = json.registros;
-      localStorage.setItem('cens_registros_v2', JSON.stringify(allRegistros));
+      
       return true;
     }
   } catch(e) {
     clearTimeout(timer);
-    // Si falla, usar cache local
-    const cache = localStorage.getItem('cens_registros_v2');
-    if (cache) { allRegistros = JSON.parse(cache); return true; }
   }
   return false;
 }
@@ -1257,16 +1254,10 @@ async function cargarDatos() {
     const json = await res.json();
     if (json.status === 'ok') {
       datos = json;
-      localStorage.setItem('cens_datos_cache', JSON.stringify(datos));
       return true;
     }
   } catch(e) {
-    // Intentar cache local
-    const cache = localStorage.getItem('cens_datos_cache');
-    if (cache) {
-      datos = JSON.parse(cache);
-      return true;
-    }
+    // sin cache disponible
   }
   return false;
 }
@@ -1489,7 +1480,7 @@ async function guardarLista() {
   const registro = { key, fecha, curso: curso.nombre, idCurso: cursoId, preceptor: currentUser.nombre, data, timestamp: new Date().toISOString() };
   const idx = allRegistros.findIndex(r => r.key === key);
   if (idx >= 0) allRegistros[idx] = registro; else allRegistros.push(registro);
-  localStorage.setItem('cens_registros_v2', JSON.stringify(allRegistros));
+  
 
   // Enviar a Google Sheets
   mostrarGuardando('Enviando a Google Sheets...');
@@ -1643,7 +1634,7 @@ async function guardarNuevoAlumno() {
       dni: dni,
       sexo: sexo
     });
-    localStorage.setItem('cens_datos_cache', JSON.stringify(datos));
+    
 
     // Mostrar confirmación
     document.getElementById('nuevo-alumno-ok-txt').textContent = nombre + ' agregado a ' + curso;
@@ -4425,7 +4416,7 @@ async function guardarEdicionAlumno() {
     if (alumnoObj) {
       alumnoObj.nombre = nuevoNombre;
       if (nuevoDni) alumnoObj.dni = nuevoDni;
-      localStorage.setItem('cens_datos_cache', JSON.stringify(datos));
+      
     }
     // Actualizar el option
     sel.options[sel.selectedIndex].textContent    = nuevoNombre;
@@ -4533,7 +4524,7 @@ async function cambiarCursoAlumno() {
     if (alumnoObj) {
       alumnoObj.idCurso = cursoDestinoId;
       alumnoObj.curso = cursoDest.nombre;
-      localStorage.setItem('cens_datos_cache', JSON.stringify(datos));
+      
     }
     ocultarGuardando();
     document.getElementById('gest-cambio-ok-txt').textContent =
@@ -4585,7 +4576,7 @@ async function darDeBajaAlumno() {
     const alumnoObj = datos.alumnos.find(a => a.nombre===alumnoNombre && a.idCurso===cursoId);
     if (alumnoObj) {
       alumnoObj.activo = 'NO';
-      localStorage.setItem('cens_datos_cache', JSON.stringify(datos));
+      
     }
     ocultarGuardando();
     const msg = motivo === 'Pase a otro establecimiento'
