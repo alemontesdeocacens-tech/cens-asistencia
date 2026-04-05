@@ -3293,9 +3293,11 @@ async function entrarComoProfesor() {
   await cargarDatos();
   await cargarRegistrosDesdeSheet();
   ocultarGuardando();
-  document.getElementById('screen-app').style.display = 'none';
   document.getElementById('screen-inicio').style.display = 'none';
   document.getElementById('screen-bienvenida').style.display = 'none';
+  document.getElementById('screen-app').style.display = 'flex';
+  document.getElementById('view-preceptor').style.display = 'none';
+  document.getElementById('view-directora').style.display = 'none';
   document.getElementById('view-profesor').style.display = 'block';
 
   // Poblar todos los selects de cursos
