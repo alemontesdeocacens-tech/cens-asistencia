@@ -1,0 +1,16 @@
+{
+  "name": "CENS Digital - Asistencia",
+  "short_name": "CENS Digital",
+  "description": "App de asistencia y gestión del CENS",
+  "start_url": "/cens-asistencia/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#2E4057",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f3eb.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    }
+  ]
+}
