@@ -763,6 +763,25 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
           <div style="font-weight:700;color:var(--text);margin-bottom:8px;font-size:13px">📝 Notas internas</div>
           <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Solo visibles para el equipo institucional. No las ve el alumno/a.</div>
           <textarea id="leg-p-notas" placeholder="Ej: Alumno con dificultades de conectividad, contactar por WhatsApp..." rows="4" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--border);border-radius:10px;padding:10px;resize:vertical;margin-bottom:12px;box-sizing:border-box"></textarea>
+
+          <!-- Condición especial -->
+          <div style="font-weight:700;color:var(--text);margin-bottom:8px;font-size:13px">⚠️ Condición especial</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Marcá si el/la alumno/a se encuentra en alguna de estas situaciones.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+            <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer">
+              <input type="checkbox" id="leg-p-ppat" style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer">
+              PPAT (Programa Pedagógico de Acompañamiento en Trayectorias)
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer">
+              <input type="checkbox" id="leg-p-prision" style="width:18px;height:18px;accent-color:#dc2626;cursor:pointer">
+              Prisión domiciliaria
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer">
+              <input type="checkbox" id="leg-p-excepcion" style="width:18px;height:18px;accent-color:#d97706;cursor:pointer">
+              Vía de excepción (menor de 18 años)
+            </label>
+          </div>
+
           <button class="btn-primary" style="background:#0d9488;width:100%" onclick="guardarNotasLegajoP()">💾 Guardar notas</button>
         </div>
 
@@ -1006,6 +1025,23 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
         </select>
 
         <button class="refresh-btn" onclick="iniciarLegajos()">🔄 Actualizar</button>
+
+        <!-- Informe condición especial -->
+        <div class="card" style="margin-bottom:12px;padding:14px 16px;background:#fefce8;border:1.5px solid #fde047">
+          <div style="font-weight:700;color:#854d0e;margin-bottom:6px;font-size:13px">⚠️ Informe condición especial</div>
+          <div style="font-size:12px;color:#713f12;margin-bottom:10px">Generá un listado de alumnos/as según su condición registrada.</div>
+          <select id="filtro-condicion" style="margin-bottom:10px;border:1.5px solid #fde047">
+            <option value="todas">Todas las condiciones</option>
+            <option value="ppat">PPAT</option>
+            <option value="prisionDomiciliaria">Prisión domiciliaria</option>
+            <option value="viaExcepcion">Vía de excepción</option>
+          </select>
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" style="flex:1;background:#854d0e" onclick="generarInformeCondicionPDF()">📄 PDF</button>
+            <button class="btn-primary" style="flex:1;background:#3f6212" onclick="generarInformeCondicionExcel()">📊 Excel</button>
+          </div>
+        </div>
+
         <div id="leg-lista-wrap"></div>
       </div>
 
@@ -5206,6 +5242,11 @@ async function cargarInfoLegajoP() {
     // Cargar notas previas si las hay
     if (leg.notasInternas) document.getElementById('leg-p-notas').value = leg.notasInternas;
 
+    // Cargar condición especial
+    document.getElementById('leg-p-ppat').checked     = !!leg.ppat;
+    document.getElementById('leg-p-prision').checked  = !!leg.prisionDomiciliaria;
+    document.getElementById('leg-p-excepcion').checked= !!leg.viaExcepcion;
+
     // Guardar contexto
     document.getElementById('leg-p-notas').dataset.idAlumno = idAlumno;
     document.getElementById('leg-p-notas').dataset.nombre   = leg.apellidoNombre || sel.options[sel.selectedIndex].dataset.nombre;
@@ -5239,12 +5280,15 @@ async function guardarNotasLegajoP() {
       body: JSON.stringify({
         action: 'guardarLegajoPreceptor',
         datos: {
-          idAlumno:       idAlumno,
-          apellidoNombre: ta.dataset.nombre,
-          idCurso:        ta.dataset.idCurso,
-          curso:          ta.dataset.curso,
-          notasInternas:  ta.value.trim(),
-          actualizadoPor: currentUser.nombre
+          idAlumno:            idAlumno,
+          apellidoNombre:      ta.dataset.nombre,
+          idCurso:             ta.dataset.idCurso,
+          curso:               ta.dataset.curso,
+          notasInternas:       ta.value.trim(),
+          actualizadoPor:      currentUser.nombre,
+          ppat:                document.getElementById('leg-p-ppat').checked,
+          prisionDomiciliaria: document.getElementById('leg-p-prision').checked,
+          viaExcepcion:        document.getElementById('leg-p-excepcion').checked
         }
       })
     });
@@ -5255,6 +5299,137 @@ async function guardarNotasLegajoP() {
   } catch(e) {
     ocultarGuardando();
     showToast('Error al guardar', 'error');
+  }
+}
+
+// =============================================
+// INFORME CONDICIÓN ESPECIAL — DIRECTORA
+// =============================================
+async function generarInformeCondicionPDF() {
+  const condicion = document.getElementById('filtro-condicion').value;
+  mostrarGuardando('Generando informe...');
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getCondicionEspecial&condicion=' + encodeURIComponent(condicion));
+    const json = await res.json();
+    ocultarGuardando();
+    if (json.status !== 'ok') throw new Error();
+    const alumnos = json.alumnos;
+    if (!alumnos.length) { showToast('No hay alumnos con esa condición', 'error'); return; }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const W = 210, M = 14;
+    const hoy = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+    const labels = {
+      todas: 'Todas las condiciones especiales',
+      ppat: 'PPAT',
+      prisionDomiciliaria: 'Prisión domiciliaria',
+      viaExcepcion: 'Vía de excepción (menor de 18 años)'
+    };
+
+    // Encabezado
+    doc.setFillColor(37,99,235); doc.rect(0,0,W,36,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text('CENS N° 451 — Informe Condición Especial', M, 14);
+    doc.setFontSize(10); doc.setFont('helvetica','normal');
+    doc.text('Condición: ' + labels[condicion], M, 22);
+    doc.text('Fecha de emisión: ' + hoy + '   Total: ' + alumnos.length + ' alumno/s', M, 30);
+
+    let y = 46;
+    // Encabezado de tabla
+    doc.setFillColor(239,246,255);
+    doc.rect(M, y-5, W-M*2, 8, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(30,64,175);
+    doc.text('N°', M+2, y);
+    doc.text('Apellido y Nombre', M+14, y);
+    doc.text('Curso', M+100, y);
+    doc.text('PPAT', M+122, y);
+    doc.text('P.Dom.', M+136, y);
+    doc.text('V.Exc.', M+152, y);
+    y += 8;
+
+    alumnos.forEach((a, idx) => {
+      if (y > 275) { doc.addPage(); y = 20; }
+      const bg = idx % 2 === 0 ? [255,255,255] : [241,245,249];
+      doc.setFillColor(...bg); doc.rect(M, y-4, W-M*2, 7, 'F');
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(30,41,59);
+      doc.text(String(idx+1), M+2, y);
+      doc.text(a.apellidoNombre.substring(0,40), M+14, y);
+      doc.text(a.curso.substring(0,18), M+100, y);
+      doc.text(a.ppat ? '✓' : '—', M+126, y);
+      doc.text(a.prisionDomiciliaria ? '✓' : '—', M+140, y);
+      doc.text(a.viaExcepcion ? '✓' : '—', M+156, y);
+      y += 8;
+    });
+
+    // Pie
+    doc.setFontSize(7); doc.setTextColor(100,116,139);
+    doc.text('CENS N° 451 · Documento de uso institucional confidencial', M, 290);
+
+    doc.save('Informe_Condicion_Especial_' + condicion + '_' + hoy.replace(/\//g,'-') + '.pdf');
+    showToast('✓ PDF generado', 'success');
+  } catch(e) {
+    ocultarGuardando();
+    showToast('Error al generar el informe', 'error');
+  }
+}
+
+async function generarInformeCondicionExcel() {
+  const condicion = document.getElementById('filtro-condicion').value;
+  mostrarGuardando('Generando Excel...');
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getCondicionEspecial&condicion=' + encodeURIComponent(condicion));
+    const json = await res.json();
+    ocultarGuardando();
+    if (json.status !== 'ok') throw new Error();
+    const alumnos = json.alumnos;
+    if (!alumnos.length) { showToast('No hay alumnos con esa condición', 'error'); return; }
+
+    const labels = {
+      todas: 'Todas las condiciones',
+      ppat: 'PPAT',
+      prisionDomiciliaria: 'Prisión domiciliaria',
+      viaExcepcion: 'Vía de excepción'
+    };
+    const hoy = new Date().toLocaleDateString('es-AR');
+
+    // Armar CSV y convertir a xlsx via SheetJS
+    const XLSX = window.XLSX;
+    const wb = XLSX.utils.book_new();
+
+    const filas = [
+      ['CENS N° 451 — Informe Condición Especial'],
+      ['Condición: ' + labels[condicion]],
+      ['Fecha de emisión: ' + hoy],
+      [],
+      ['N°', 'Apellido y Nombre', 'ID Curso', 'Curso', 'PPAT', 'Prisión domiciliaria', 'Vía de excepción', 'Actualizado por', 'Última actualización']
+    ];
+
+    alumnos.forEach((a, idx) => {
+      filas.push([
+        idx + 1,
+        a.apellidoNombre,
+        a.idCurso,
+        a.curso,
+        a.ppat ? 'SI' : 'NO',
+        a.prisionDomiciliaria ? 'SI' : 'NO',
+        a.viaExcepcion ? 'SI' : 'NO',
+        a.actualizadoPor,
+        a.ultimaActualizacion
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols'] = [
+      {wch:5},{wch:35},{wch:10},{wch:20},{wch:8},{wch:22},{wch:22},{wch:20},{wch:18}
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Condición Especial');
+    XLSX.writeFile(wb, 'Informe_Condicion_Especial_' + condicion + '.xlsx');
+    showToast('✓ Excel generado', 'success');
+  } catch(e) {
+    ocultarGuardando();
+    showToast('Error al generar el Excel', 'error');
   }
 }
 
