@@ -601,7 +601,9 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
           <option value="Masculino">Masculino</option>
         </select>
         <label class="field-label">Fecha de ingreso</label>
-        <input type="date" id="na-fecha-ingreso" style="margin-bottom:20px">
+        <input type="date" id="na-fecha-ingreso" style="margin-bottom:14px">
+        <label class="field-label">Fecha de Nacimiento</label>
+        <input type="date" id="na-fecha-nac" style="margin-bottom:20px">
         <button class="btn-primary" style="background:#16a34a" onclick="guardarNuevoAlumno()">➕ Agregar alumno</button>
       </div>
       <div id="nuevo-alumno-ok" style="display:none" class="card" style="background:var(--green-light);border:1px solid var(--green)">
@@ -708,7 +710,9 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
             <label class="field-label">Apellido y Nombre</label>
             <input type="text" id="gest-edit-nombre" placeholder="Ej: GARCÍA, Ana Laura" style="text-transform:uppercase;margin-bottom:14px">
             <label class="field-label">DNI</label>
-            <input type="text" id="gest-edit-dni" placeholder="Sin puntos. Ej: 38456789" inputmode="numeric" style="margin-bottom:20px">
+            <input type="text" id="gest-edit-dni" placeholder="Sin puntos. Ej: 38456789" inputmode="numeric" style="margin-bottom:14px">
+            <label class="field-label">Fecha de Nacimiento</label>
+            <input type="date" id="gest-edit-fechanac" style="margin-bottom:20px">
             <div style="background:var(--yellow-light);border:1px solid #fde047;border-radius:10px;padding:10px 14px;font-size:12px;color:#713f12;font-weight:600;margin-bottom:16px">
               ⚠️ Revisá los datos antes de guardar. El nombre se usa en todos los registros de asistencia.
             </div>
@@ -997,7 +1001,14 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Detalle de alumnos activos por curso separado por sexo, con resumen general</div>
         <button class="btn-primary" style="background:#0891b2;width:100%" onclick="exportarMatriculaExcel()">📥 Descargar Excel</button>
       </div>
-    </div>
+      <div class="card" style="border:1.5px solid #d97706;background:#fffbeb">
+        <div style="font-weight:700;color:#92400e;margin-bottom:6px;font-size:13px">🎂 Informe por rango de edades</div>
+        <div style="font-size:12px;color:#78350f;margin-bottom:12px">Cuenta alumnos activos agrupados por rango etario: menores de 18 (Excepción), 18–25, 26–40, 41–60 y más de 60 años.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:1;background:#d97706" onclick="generarInformeEdadesPDF()">📄 PDF</button>
+          <button class="btn-primary" style="flex:1;background:#16a34a" onclick="generarInformeEdadesExcel()">📊 Excel</button>
+        </div>
+      </div>
 
     <!-- TAB LEGAJOS — DIRECTORA -->
     <div id="dtab-legajos" style="display:none">
@@ -1624,6 +1635,7 @@ async function guardarNuevoAlumno() {
   const dni           = document.getElementById('na-dni').value.trim();
   const sexo          = document.getElementById('na-sexo').value;
   const fechaIngreso  = document.getElementById('na-fecha-ingreso').value;
+  const fechaNacimiento = document.getElementById('na-fecha-nac').value;
 
   const errEl = document.getElementById('nuevo-alumno-error');
   const okEl  = document.getElementById('nuevo-alumno-ok');
@@ -1652,7 +1664,7 @@ async function guardarNuevoAlumno() {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'addAlumno', alumno: { nombre, curso, dni, sexo, fechaIngreso } })
+      body: JSON.stringify({ action: 'addAlumno', alumno: { nombre, curso, dni, sexo, fechaIngreso, fechaNacimiento } })
     });
     ocultarGuardando();
 
@@ -1668,9 +1680,9 @@ async function guardarNuevoAlumno() {
       curso: curso,
       activo: 'SI',
       dni: dni,
-      sexo: sexo
+      sexo: sexo,
+      fechaNacimiento: fechaNacimiento
     });
-    
 
     // Mostrar confirmación
     document.getElementById('nuevo-alumno-ok-txt').textContent = nombre + ' agregado a ' + curso;
@@ -1679,7 +1691,7 @@ async function guardarNuevoAlumno() {
     document.getElementById('na-dni').value = '';
     document.getElementById('na-sexo').value = '';
     document.getElementById('na-fecha-ingreso').value = '';
-    document.getElementById('na-fecha-ingreso').value = '';
+    document.getElementById('na-fecha-nac').value = '';
 
     showToast('\u2713 Alumno agregado correctamente', 'success');
   } catch(e) {
@@ -4362,10 +4374,194 @@ function exportarMatriculaExcel() {
   showToast('✓ Excel de matrícula generado', 'success');
 }
 
+// =============================================
+// INFORME POR RANGOS DE EDAD — DIRECTORA
+// =============================================
 
-// =============================================
-// GESTIONAR ALUMNOS — PRECEPTOR
-// =============================================
+function calcularEdad(fechaNac) {
+  if (!fechaNac) return null;
+  const hoy = new Date();
+  const nac = new Date(fechaNac);
+  if (isNaN(nac.getTime())) return null;
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
+}
+
+function clasificarEdad(edad) {
+  if (edad === null) return 'sinDato';
+  if (edad < 18)  return 'excepcion';
+  if (edad <= 25) return 'r18_25';
+  if (edad <= 40) return 'r26_40';
+  if (edad <= 60) return 'r41_60';
+  return 'r61mas';
+}
+
+const RANGOS_LABEL = {
+  excepcion: 'Excepción (menores de 18 años)',
+  r18_25:    '18 a 25 años',
+  r26_40:    '26 a 40 años',
+  r41_60:    '41 a 60 años',
+  r61mas:    'Más de 60 años',
+  sinDato:   'Sin fecha de nacimiento'
+};
+const RANGOS_ORDEN = ['excepcion','r18_25','r26_40','r41_60','r61mas','sinDato'];
+
+function construirDatosEdades() {
+  const alumnos = (datos.alumnos || []).filter(a => a.activo === 'SI' || a.activo === true || a.activo === 'si');
+  const cursos  = datos.cursos || [];
+
+  const rangos = { excepcion:[], r18_25:[], r26_40:[], r41_60:[], r61mas:[], sinDato:[] };
+  alumnos.forEach(a => {
+    const edad  = calcularEdad(a.fechaNacimiento);
+    const clave = clasificarEdad(edad);
+    const curso = cursos.find(c => c.id === a.idCurso);
+    rangos[clave].push({
+      nombre:  a.nombre,
+      dni:     a.dni || '—',
+      curso:   curso ? curso.nombre : '—',
+      turno:   curso ? (curso.turno || '—') : '—',
+      fechaNac: a.fechaNacimiento || '',
+      edad:    edad !== null ? edad : '—'
+    });
+  });
+  // Ordenar por nombre dentro de cada rango
+  RANGOS_ORDEN.forEach(k => rangos[k].sort((a,b) => a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'})));
+  return rangos;
+}
+
+function generarInformeEdadesPDF() {
+  const rangos = construirDatosEdades();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const margin = 14;
+  const pW = 210 - margin * 2;
+  const hoy = new Date().toLocaleDateString('es-AR');
+  let y = 14;
+
+  // Encabezado
+  doc.setFontSize(15); doc.setFont(undefined,'bold');
+  doc.text('CENS N° 451 – Informe por Rango de Edades', margin, y); y += 7;
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(`Fecha de generación: ${hoy}`, margin, y); y += 10;
+
+  const total = RANGOS_ORDEN.reduce((s,k) => s + rangos[k].length, 0);
+
+  // Resumen general
+  doc.setFontSize(11); doc.setFont(undefined,'bold');
+  doc.text('Resumen general', margin, y); y += 6;
+
+  RANGOS_ORDEN.forEach(k => {
+    const cant = rangos[k].length;
+    if (cant === 0) return;
+    doc.setFont(undefined,'normal'); doc.setFontSize(10);
+    const pct = total > 0 ? ` (${Math.round(cant/total*100)}%)` : '';
+    doc.text(`• ${RANGOS_LABEL[k]}: ${cant} alumno/s${pct}`, margin + 4, y);
+    y += 5;
+  });
+  doc.setFont(undefined,'bold'); doc.setFontSize(10);
+  doc.text(`TOTAL GENERAL: ${total} alumnos activos`, margin + 4, y); y += 10;
+
+  // Detalle por rango
+  RANGOS_ORDEN.forEach(k => {
+    const lista = rangos[k];
+    if (lista.length === 0) return;
+
+    if (y > 255) { doc.addPage(); y = 14; }
+
+    doc.setFontSize(11); doc.setFont(undefined,'bold');
+    doc.setFillColor(230, 245, 255);
+    doc.rect(margin, y - 4, pW, 7, 'F');
+    doc.text(`${RANGOS_LABEL[k]}  (${lista.length})`, margin + 2, y + 1);
+    y += 9;
+
+    // Cabecera tabla
+    doc.setFontSize(8); doc.setFont(undefined,'bold');
+    doc.text('Apellido y Nombre', margin, y);
+    doc.text('DNI', margin + 75, y);
+    doc.text('F. Nac.', margin + 100, y);
+    doc.text('Edad', margin + 125, y);
+    doc.text('Curso', margin + 140, y);
+    y += 4;
+    doc.setDrawColor(180,180,180);
+    doc.line(margin, y, margin + pW, y); y += 3;
+
+    doc.setFont(undefined,'normal'); doc.setFontSize(8);
+    lista.forEach((a, i) => {
+      if (y > 280) { doc.addPage(); y = 14; }
+      if (i % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, y - 3, pW, 5.5, 'F');
+      }
+      doc.text(a.nombre.substring(0, 38), margin, y);
+      doc.text(String(a.dni), margin + 75, y);
+      const fnDisplay = a.fechaNac ? new Date(a.fechaNac + 'T00:00:00').toLocaleDateString('es-AR') : '—';
+      doc.text(fnDisplay, margin + 100, y);
+      doc.text(String(a.edad), margin + 125, y);
+      doc.text(a.curso.substring(0, 22), margin + 140, y);
+      y += 5.5;
+    });
+    y += 5;
+  });
+
+  doc.save(`Informe_Edades_${new Date().toISOString().split('T')[0]}.pdf`);
+  showToast('✓ PDF por rangos de edad generado', 'success');
+}
+
+function generarInformeEdadesExcel() {
+  const rangos = construirDatosEdades();
+  const wb = XLSX.utils.book_new();
+  const hoy = new Date().toLocaleDateString('es-AR');
+  const total = RANGOS_ORDEN.reduce((s,k) => s + rangos[k].length, 0);
+
+  // ── Hoja 1: Resumen ──
+  const rowsRes = [
+    [`CENS N° 451 – Informe por Rango de Edades – ${hoy}`],
+    [],
+    ['Rango de edad', 'Cantidad', 'Porcentaje']
+  ];
+  RANGOS_ORDEN.forEach(k => {
+    const cant = rangos[k].length;
+    if (cant === 0) return;
+    const pct = total > 0 ? (Math.round(cant / total * 100) + '%') : '0%';
+    rowsRes.push([RANGOS_LABEL[k], cant, pct]);
+  });
+  rowsRes.push([]);
+  rowsRes.push(['TOTAL', total, '100%']);
+  const wsRes = XLSX.utils.aoa_to_sheet(rowsRes);
+  wsRes['!cols'] = [{wch:38},{wch:12},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen');
+
+  // ── Hojas por rango ──
+  RANGOS_ORDEN.forEach(k => {
+    const lista = rangos[k];
+    if (lista.length === 0) return;
+    const rows = [
+      [`${RANGOS_LABEL[k]} – ${hoy}`],
+      [],
+      ['Apellido y Nombre', 'DNI', 'Fecha de Nacimiento', 'Edad', 'Curso', 'Turno']
+    ];
+    lista.forEach(a => {
+      const fnDisplay = a.fechaNac ? new Date(a.fechaNac + 'T00:00:00').toLocaleDateString('es-AR') : '—';
+      rows.push([a.nombre, a.dni, fnDisplay, a.edad, a.curso, a.turno]);
+    });
+    rows.push([]);
+    rows.push([`Total: ${lista.length} alumno/s`]);
+    const sheetName = {
+      excepcion:'Excepción (<18)', r18_25:'18 a 25', r26_40:'26 a 40',
+      r41_60:'41 a 60', r61mas:'Más de 60', sinDato:'Sin fecha'
+    }[k];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:35},{wch:14},{wch:20},{wch:8},{wch:22},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, `Informe_Edades_${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('✓ Excel por rangos de edad generado', 'success');
+}
+
+
 function iniciarGestionar() {
   const misCursos = datos.cursos.filter(c => c.preceptor === currentUser.nombre);
 
@@ -4411,8 +4607,9 @@ function poblarAlumnosEditar() {
     .forEach(a => {
       const opt = document.createElement('option');
       opt.value          = a.id;
-      opt.dataset.nombre = a.nombre;
-      opt.dataset.dni    = a.dni || '';
+      opt.dataset.nombre  = a.nombre;
+      opt.dataset.dni     = a.dni || '';
+      opt.dataset.fechanac = a.fechaNacimiento || '';
       opt.textContent    = a.nombre;
       sel.appendChild(opt);
     });
@@ -4423,29 +4620,31 @@ function cargarDatosParaEditar() {
   const opt = sel.options[sel.selectedIndex];
   if (!sel.value) { document.getElementById('gest-edit-campos').style.display = 'none'; return; }
   document.getElementById('gest-edit-campos').style.display = 'block';
-  document.getElementById('gest-edit-nombre').value = opt.dataset.nombre || '';
-  document.getElementById('gest-edit-dni').value    = opt.dataset.dni    || '';
+  document.getElementById('gest-edit-nombre').value   = opt.dataset.nombre  || '';
+  document.getElementById('gest-edit-dni').value      = opt.dataset.dni     || '';
+  document.getElementById('gest-edit-fechanac').value = opt.dataset.fechanac || '';
   document.getElementById('gest-edit-ok').style.display = 'none';
 }
 
 async function guardarEdicionAlumno() {
-  const sel          = document.getElementById('gest-edit-alumno');
-  const idAlumno     = sel.value;
-  const nuevoNombre  = document.getElementById('gest-edit-nombre').value.trim().toUpperCase();
-  const nuevoDni     = document.getElementById('gest-edit-dni').value.trim();
+  const sel            = document.getElementById('gest-edit-alumno');
+  const idAlumno       = sel.value;
+  const nuevoNombre    = document.getElementById('gest-edit-nombre').value.trim().toUpperCase();
+  const nuevoDni       = document.getElementById('gest-edit-dni').value.trim();
+  const nuevaFechaNac  = document.getElementById('gest-edit-fechanac').value.trim();
 
   if (!idAlumno)    { showToast('Seleccioná un alumno', 'error'); return; }
   if (!nuevoNombre) { showToast('El nombre no puede quedar vacío', 'error'); return; }
 
   const nombreActual = sel.options[sel.selectedIndex].dataset.nombre;
-  if (!confirm(`¿Guardar cambios para ${nombreActual}?\nNuevo nombre: ${nuevoNombre}${nuevoDni ? '\nNuevo DNI: ' + nuevoDni : ''}`)) return;
+  if (!confirm(`¿Guardar cambios para ${nombreActual}?\nNuevo nombre: ${nuevoNombre}${nuevoDni ? '\nNuevo DNI: ' + nuevoDni : ''}${nuevaFechaNac ? '\nFecha nac.: ' + nuevaFechaNac : ''}`)) return;
 
   mostrarGuardando('Guardando cambios...');
   try {
     await fetch(SCRIPT_URL, {
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'editarDatosAlumno', idAlumno, nuevoNombre, nuevoDni })
+      body: JSON.stringify({ action:'editarDatosAlumno', idAlumno, nuevoNombre, nuevoDni, nuevaFechaNac })
     });
     await new Promise(r => setTimeout(r, 1200));
 
@@ -4453,17 +4652,18 @@ async function guardarEdicionAlumno() {
     const alumnoObj = datos.alumnos.find(a => a.id === idAlumno);
     if (alumnoObj) {
       alumnoObj.nombre = nuevoNombre;
-      if (nuevoDni) alumnoObj.dni = nuevoDni;
-      
+      if (nuevoDni)      alumnoObj.dni = nuevoDni;
+      if (nuevaFechaNac) alumnoObj.fechaNacimiento = nuevaFechaNac;
     }
     // Actualizar el option
-    sel.options[sel.selectedIndex].textContent    = nuevoNombre;
-    sel.options[sel.selectedIndex].dataset.nombre = nuevoNombre;
-    sel.options[sel.selectedIndex].dataset.dni    = nuevoDni;
+    sel.options[sel.selectedIndex].textContent     = nuevoNombre;
+    sel.options[sel.selectedIndex].dataset.nombre  = nuevoNombre;
+    sel.options[sel.selectedIndex].dataset.dni     = nuevoDni;
+    sel.options[sel.selectedIndex].dataset.fechanac = nuevaFechaNac;
 
     ocultarGuardando();
     document.getElementById('gest-edit-ok-txt').textContent =
-      `Actualizado: ${nuevoNombre}${nuevoDni ? ' · DNI ' + nuevoDni : ''}`;
+      `Actualizado: ${nuevoNombre}${nuevoDni ? ' · DNI ' + nuevoDni : ''}${nuevaFechaNac ? ' · Nac. ' + nuevaFechaNac : ''}`;
     document.getElementById('gest-edit-ok').style.display = 'block';
     showToast('✓ Datos actualizados', 'success');
   } catch(e) {
