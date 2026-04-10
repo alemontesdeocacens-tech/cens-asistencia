@@ -5318,11 +5318,11 @@ function generarPDFLegajo() {
 
   let y = 48;
 
-  const titulo = (txt, icon) => {
+  const titulo = (txt) => {
     if (y > 265) { doc.addPage(); y = 20; }
     doc.setFillColor(239,246,255); doc.rect(M, y-4, W-M*2, 8, 'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(37,99,235);
-    doc.text(icon + '  ' + txt, M+2, y+1);
+    doc.text(txt.toUpperCase(), M+2, y+1);
     y += 10;
   };
 
@@ -5348,7 +5348,7 @@ function generarPDFLegajo() {
   };
 
   // Datos personales
-  titulo('Datos personales', '👤');
+  titulo('Datos personales');
   campoPar('Apellido y Nombre', leg.apellidoNombre, 'DNI', leg.dni);
   campoPar('Fecha de nacimiento', leg.fechaNacimiento, 'Teléfono', leg.telefonoPersonal);
   campoPar('Domicilio', leg.domicilio, 'Localidad', leg.localidad);
@@ -5356,37 +5356,37 @@ function generarPDFLegajo() {
   y += 4;
 
   // Contacto emergencia
-  titulo('Contacto de emergencia', '🚨');
+  titulo('Contacto de emergencia');
   campoPar('Nombre', leg.contactoNombre, 'Vínculo', leg.contactoVinculo);
   campoPar('Teléfono principal', leg.contactoTel, 'Teléfono alternativo', leg.contactoTelAlt);
   y += 4;
 
   // Datos académicos
-  titulo('Datos académicos', '🎓');
+  titulo('Datos académicos');
   campoPar('Curso', leg.curso, 'Año de ingreso', leg.anioIngreso);
   y += 4;
 
   // Cobertura médica
-  titulo('Cobertura médica', '🏥');
+  titulo('Cobertura médica');
   campoPar('¿Tiene cobertura?', leg.tieneObraSocial, 'Obra social / Prepaga', leg.obraSocialNombre);
   campo('N° de afiliado', leg.obraSocialNro);
   y += 4;
 
   // Situación laboral
-  titulo('Situación laboral', '💼');
+  titulo('Situación laboral');
   campoPar('¿Trabaja?', leg.trabaja, 'Horario', leg.horarioLaboral);
   campo('Lugar de trabajo', leg.lugarTrabajo);
   y += 4;
 
   // Necesidades especiales
-  titulo('Necesidades especiales', '♿');
+  titulo('Necesidades especiales');
   campo('¿Presenta alguna condición?', leg.discapacidad);
   if (leg.discapacidadDesc) campo('Descripción', leg.discapacidadDesc);
   y += 4;
 
   // Notas internas
   if (leg.notasInternas) {
-    titulo('Notas internas', '📝');
+    titulo('Notas internas');
     if (y > 265) { doc.addPage(); y = 20; }
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(30,41,59);
     const lines = doc.splitTextToSize(leg.notasInternas, W - M*2 - 4);
