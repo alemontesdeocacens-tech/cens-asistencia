@@ -809,6 +809,7 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
       <button class="tab-btn" onclick="dTab('justificaciones',this)">📝 Justificaciones</button>
       <button class="tab-btn" onclick="dTab('exportar',this)">📥 Exportar</button>
       <button class="tab-btn" onclick="dTab('legajos',this)" style="background:#7c3aed;border-color:#7c3aed;color:white">🗂️ Legajos</button>
+      <button class="tab-btn" onclick="dTab('configuracion',this)" style="background:#0f172a;border-color:#0f172a;color:white">⚙️ Config</button>
     </div>
 
     <div id="dtab-resumen">
@@ -1029,12 +1030,13 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
         <select id="leg-filtro-curso" onchange="renderListaLegajos()" style="margin-bottom:10px">
           <option value="">Todos los cursos</option>
         </select>
-        <select id="leg-filtro-estado" onchange="renderListaLegajos()" style="margin-bottom:12px">
+        <select id="leg-filtro-estado" onchange="renderListaLegajos()" style="margin-bottom:10px">
           <option value="">Todos los estados</option>
           <option value="completo">✓ Completos</option>
           <option value="incompleto">⚠ Incompletos</option>
           <option value="sinlegajo">✗ Sin legajo</option>
         </select>
+        <input type="text" id="leg-filtro-nombre" placeholder="🔍 Buscar por apellido o nombre..." oninput="renderListaLegajos()" style="margin-bottom:12px">
 
         <button class="refresh-btn" onclick="iniciarLegajos()">🔄 Actualizar</button>
 
@@ -1097,6 +1099,80 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
         <div id="leg-secciones"></div>
       </div>
     </div>
+
+    <!-- TAB CONFIGURACIÓN — DIRECTORA -->
+    <div id="dtab-configuracion" style="display:none">
+      <div class="section-title">⚙️ Configuración</div>
+      <div class="section-sub">Gestioná usuarios y cursos sin ir a la planilla</div>
+
+      <!-- Sub-tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <button id="cfg-btn-usuarios" onclick="cfgTab('usuarios')"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #0f172a;background:#0f172a;color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+          👤 Usuarios
+        </button>
+        <button id="cfg-btn-cursos" onclick="cfgTab('cursos')"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+          📚 Cursos
+        </button>
+      </div>
+
+      <!-- ── USUARIOS ── -->
+      <div id="cfg-subtab-usuarios">
+        <div class="section-title" style="font-size:16px;margin-bottom:12px">👤 Gestión de usuarios</div>
+        <button class="refresh-btn" onclick="renderUsuariosConfig()">🔄 Actualizar lista</button>
+        <div id="cfg-usuarios-lista" style="margin-bottom:20px"></div>
+
+        <div class="card" style="border:1.5px solid #0f172a">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:12px;font-size:14px">➕ Nuevo usuario</div>
+          <div id="cfg-usr-error" style="display:none;background:var(--red-light);color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:12px"></div>
+          <label class="field-label">Nombre completo</label>
+          <input type="text" id="cfg-usr-nombre" placeholder="Ej: PÉREZ, María Laura" style="text-transform:uppercase">
+          <label class="field-label">Rol</label>
+          <select id="cfg-usr-rol" style="margin-bottom:14px">
+            <option value="">Seleccioná un rol...</option>
+            <option value="preceptor">Preceptor/a</option>
+            <option value="directora">Directora</option>
+            <option value="profesor">Profesor/a</option>
+          </select>
+          <label class="field-label">Contraseña</label>
+          <input type="text" id="cfg-usr-pass" placeholder="Ej: cens2025">
+          <label class="field-label">Activo</label>
+          <select id="cfg-usr-activo" style="margin-bottom:20px">
+            <option value="SI">Sí</option>
+            <option value="NO">No</option>
+          </select>
+          <button class="btn-primary" style="background:#0f172a" onclick="agregarUsuario()">➕ Agregar usuario</button>
+          <div id="cfg-usr-ok" style="display:none;background:var(--green-light);border:1px solid var(--green);border-radius:10px;padding:12px;text-align:center;margin-top:12px">
+            <div style="font-weight:700;color:var(--green)" id="cfg-usr-ok-txt"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CURSOS ── -->
+      <div id="cfg-subtab-cursos" style="display:none">
+        <div class="section-title" style="font-size:16px;margin-bottom:12px">📚 Gestión de cursos</div>
+        <button class="refresh-btn" onclick="renderCursosConfig()">🔄 Actualizar lista</button>
+        <div id="cfg-cursos-lista" style="margin-bottom:20px"></div>
+
+        <div class="card" style="border:1.5px solid #0f172a">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:12px;font-size:14px">➕ Nuevo curso</div>
+          <div id="cfg-cur-error" style="display:none;background:var(--red-light);color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:12px"></div>
+          <label class="field-label">Nombre del curso</label>
+          <input type="text" id="cfg-cur-nombre" placeholder="Ej: 1° A">
+          <label class="field-label">Preceptor/a asignado/a</label>
+          <select id="cfg-cur-preceptor" style="margin-bottom:14px">
+            <option value="">Seleccioná un preceptor/a...</option>
+          </select>
+          <label class="field-label">Turno</label>
+          <input type="text" id="cfg-cur-turno" placeholder="Ej: Tarde" style="margin-bottom:20px">
+          <button class="btn-primary" style="background:#0f172a" onclick="agregarCurso()">➕ Agregar curso</button>
+          <div id="cfg-cur-ok" style="display:none;background:var(--green-light);border:1px solid var(--green);border-radius:10px;padding:12px;text-align:center;margin-top:12px">
+            <div style="font-weight:700;color:var(--green)" id="cfg-cur-ok-txt"></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /dtab-configuracion -->
 
   </div><!-- /view-directora -->
 <div class="main-content" id="view-profesor" style="display:none;padding:0;max-width:100%">
@@ -1802,6 +1878,7 @@ function dTab(tab, btn) {
   document.getElementById('dtab-justificaciones').style.display = tab==='justificaciones' ? 'block' : 'none';
   document.getElementById('dtab-exportar').style.display = tab==='exportar' ? 'block' : 'none';
   document.getElementById('dtab-legajos').style.display  = tab==='legajos'  ? 'block' : 'none';
+  document.getElementById('dtab-configuracion').style.display = tab==='configuracion' ? 'block' : 'none';
   if (tab === 'fechas') poblarCursosFechas('d');
   if (tab === 'progresar') cargarProgresar();
   if (tab === 'exportar') cargarDatosExportar();
@@ -1810,6 +1887,7 @@ function dTab(tab, btn) {
   if (tab === 'docs') cargarDocumentosDir();
   if (tab === 'justificaciones') cargarJustificacionesDir();
   if (tab === 'legajos') iniciarLegajos();
+  if (tab === 'configuracion') iniciarConfiguracion();
 }
 
 // =============================================
@@ -5118,12 +5196,14 @@ async function iniciarLegajos() {
 function renderListaLegajos() {
   const filtroCurso  = document.getElementById('leg-filtro-curso').value;
   const filtroEstado = document.getElementById('leg-filtro-estado').value;
+  const filtroNombre = (document.getElementById('leg-filtro-nombre')?.value || '').toLowerCase().trim();
 
   let lista = legajosCache;
   if (filtroCurso)  lista = lista.filter(a => a.idCurso === filtroCurso);
   if (filtroEstado) lista = lista.filter(a => a.estado === filtroEstado);
+  if (filtroNombre) lista = lista.filter(a => a.nombre.toLowerCase().includes(filtroNombre));
 
-  // Stats
+  // Stats (siempre sobre la cache completa, no el filtro)
   const completos   = legajosCache.filter(a => a.estado === 'completo').length;
   const incompletos = legajosCache.filter(a => a.estado === 'incompleto').length;
   const sinlegajo   = legajosCache.filter(a => a.estado === 'sinlegajo').length;
@@ -5657,6 +5737,290 @@ async function generarInformeCondicionExcel() {
   } catch(e) {
     ocultarGuardando();
     showToast('Error al generar el Excel', 'error');
+  }
+}
+
+// =============================================
+// CONFIGURACIÓN — USUARIOS Y CURSOS (DIRECTORA)
+// =============================================
+
+function iniciarConfiguracion() {
+  cfgTab('usuarios');
+}
+
+function cfgTab(tab) {
+  const btnUsuarios = document.getElementById('cfg-btn-usuarios');
+  const btnCursos   = document.getElementById('cfg-btn-cursos');
+  const subUsuarios = document.getElementById('cfg-subtab-usuarios');
+  const subCursos   = document.getElementById('cfg-subtab-cursos');
+
+  if (tab === 'usuarios') {
+    btnUsuarios.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid #0f172a;background:#0f172a;color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer';
+    btnCursos.style.cssText   = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer';
+    subUsuarios.style.display = 'block';
+    subCursos.style.display   = 'none';
+    renderUsuariosConfig();
+  } else {
+    btnCursos.style.cssText   = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid #0f172a;background:#0f172a;color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer';
+    btnUsuarios.style.cssText = 'flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer';
+    subCursos.style.display   = 'block';
+    subUsuarios.style.display = 'none';
+    renderCursosConfig();
+  }
+}
+
+// ── USUARIOS ──────────────────────────────────────────────────
+
+function renderUsuariosConfig() {
+  const lista = datos.usuarios || [];
+  if (!lista.length) {
+    document.getElementById('cfg-usuarios-lista').innerHTML = '<div class="empty"><div class="empty-icon">👤</div><div class="empty-txt">No hay usuarios cargados</div></div>';
+    return;
+  }
+  const rolColor = { preceptor:'#2563eb', directora:'#7c3aed', profesor:'#0d9488' };
+  const rolBg    = { preceptor:'#eff6ff',  directora:'#f5f3ff', profesor:'#f0fdfa' };
+  document.getElementById('cfg-usuarios-lista').innerHTML = lista.map((u, idx) => `
+    <div class="card" style="margin-bottom:10px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <div style="width:40px;height:40px;border-radius:50%;background:${rolBg[u.rol?.toLowerCase()]||'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:${rolColor[u.rol?.toLowerCase()]||'#64748b'};flex-shrink:0">
+          ${u.nombre?.[0]?.toUpperCase()||'?'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.nombre}</div>
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:${rolBg[u.rol?.toLowerCase()]||'#f1f5f9'};color:${rolColor[u.rol?.toLowerCase()]||'#64748b'}">${u.rol}</span>
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:${u.activo==='SI'?'#dcfce7':'#fee2e2'};color:${u.activo==='SI'?'#16a34a':'#dc2626'};margin-left:4px">${u.activo==='SI'?'Activo':'Inactivo'}</span>
+        </div>
+      </div>
+      <!-- Cambiar contraseña -->
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="cfg-pass-${idx}" placeholder="Nueva contraseña" style="flex:1;margin-bottom:0;font-size:13px;padding:9px 12px">
+        <button onclick="cambiarPasswordUsuario(${idx},'${u.nombre.replace(/'/g,"\\'")}',${u.activo==='SI'})"
+          style="padding:9px 14px;border-radius:10px;border:1.5px solid #0f172a;background:#0f172a;color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+          🔑 Cambiar
+        </button>
+        <button onclick="toggleActivoUsuario(${idx},'${u.nombre.replace(/'/g,"\\'")}','${u.activo}')"
+          style="padding:9px 14px;border-radius:10px;border:1.5px solid ${u.activo==='SI'?'#dc2626':'#16a34a'};background:${u.activo==='SI'?'#fee2e2':'#dcfce7'};color:${u.activo==='SI'?'#dc2626':'#16a34a'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+          ${u.activo==='SI'?'🚫 Desactivar':'✓ Activar'}
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+async function cambiarPasswordUsuario(idx, nombre, estaActivo) {
+  const input = document.getElementById(`cfg-pass-${idx}`);
+  const nueva = input.value.trim();
+  if (!nueva) { showToast('Ingresá la nueva contraseña', 'error'); return; }
+  mostrarGuardando('Guardando...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'editarUsuario', nombre, campo: 'password', valor: nueva })
+    });
+    await new Promise(r => setTimeout(r, 900));
+    ocultarGuardando();
+    // Actualizar en memoria
+    const u = datos.usuarios.find(u => u.nombre === nombre);
+    if (u) u.password = nueva;
+    input.value = '';
+    showToast(`✓ Contraseña de ${nombre.split(',')[0]} actualizada`, 'success');
+  } catch(e) {
+    ocultarGuardando();
+    showToast('Error al guardar', 'error');
+  }
+}
+
+async function toggleActivoUsuario(idx, nombre, estadoActual) {
+  const nuevo = estadoActual === 'SI' ? 'NO' : 'SI';
+  const accion = nuevo === 'SI' ? 'activado' : 'desactivado';
+  mostrarGuardando('Guardando...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'editarUsuario', nombre, campo: 'activo', valor: nuevo })
+    });
+    await new Promise(r => setTimeout(r, 900));
+    ocultarGuardando();
+    const u = datos.usuarios.find(u => u.nombre === nombre);
+    if (u) u.activo = nuevo;
+    renderUsuariosConfig();
+    showToast(`✓ Usuario ${accion}`, 'success');
+  } catch(e) {
+    ocultarGuardando();
+    showToast('Error al guardar', 'error');
+  }
+}
+
+async function agregarUsuario() {
+  const nombre = document.getElementById('cfg-usr-nombre').value.trim().toUpperCase();
+  const rol    = document.getElementById('cfg-usr-rol').value;
+  const pass   = document.getElementById('cfg-usr-pass').value.trim();
+  const activo = document.getElementById('cfg-usr-activo').value;
+  const errEl  = document.getElementById('cfg-usr-error');
+  const okEl   = document.getElementById('cfg-usr-ok');
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (!nombre) { errEl.textContent = 'Ingresá el nombre del usuario'; errEl.style.display = 'block'; return; }
+  if (!rol)    { errEl.textContent = 'Seleccioná un rol'; errEl.style.display = 'block'; return; }
+  if (!pass)   { errEl.textContent = 'Ingresá una contraseña'; errEl.style.display = 'block'; return; }
+  if (datos.usuarios.some(u => u.nombre.toUpperCase() === nombre)) {
+    errEl.textContent = 'Ya existe un usuario con ese nombre'; errEl.style.display = 'block'; return;
+  }
+
+  mostrarGuardando('Guardando usuario...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'agregarUsuario', usuario: { nombre, rol, password: pass, activo } })
+    });
+    await new Promise(r => setTimeout(r, 1000));
+    ocultarGuardando();
+    datos.usuarios.push({ nombre, rol, password: pass, activo });
+    document.getElementById('cfg-usr-nombre').value = '';
+    document.getElementById('cfg-usr-rol').value    = '';
+    document.getElementById('cfg-usr-pass').value   = '';
+    document.getElementById('cfg-usr-activo').value = 'SI';
+    document.getElementById('cfg-usr-ok-txt').textContent = `✓ Usuario ${nombre} creado correctamente`;
+    okEl.style.display = 'block';
+    renderUsuariosConfig();
+    showToast('✓ Usuario creado', 'success');
+  } catch(e) {
+    ocultarGuardando();
+    showToast('Error al guardar', 'error');
+  }
+}
+
+// ── CURSOS ────────────────────────────────────────────────────
+
+function renderCursosConfig() {
+  // Poblar selector de preceptores en el formulario
+  const selPrec = document.getElementById('cfg-cur-preceptor');
+  selPrec.innerHTML = '<option value="">Seleccioná un preceptor/a...</option>';
+  datos.usuarios
+    .filter(u => u.activo === 'SI' && (u.rol?.toLowerCase() === 'preceptor' || u.rol?.toLowerCase() === 'preceptora'))
+    .forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.nombre; opt.textContent = u.nombre;
+      selPrec.appendChild(opt);
+    });
+
+  const lista = datos.cursos || [];
+  if (!lista.length) {
+    document.getElementById('cfg-cursos-lista').innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-txt">No hay cursos cargados</div></div>';
+    return;
+  }
+
+  document.getElementById('cfg-cursos-lista').innerHTML = lista.map((c, idx) => `
+    <div class="card" style="margin-bottom:10px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:15px">${c.nombre}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">👤 ${c.preceptor} ${c.turno ? '· '+c.turno : ''}</div>
+          <div style="font-size:10px;color:var(--text2);font-family:monospace;margin-top:2px">ID: ${c.id}</div>
+        </div>
+        <button onclick="editarCursoInline(${idx})"
+          style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--gray-light);color:var(--text2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">
+          ✏️ Editar
+        </button>
+      </div>
+      <div id="cfg-cur-edit-${idx}" style="display:none">
+        <label class="field-label" style="margin-top:8px">Nuevo nombre</label>
+        <input type="text" id="cfg-cur-edit-nombre-${idx}" value="${c.nombre}" style="margin-bottom:8px">
+        <label class="field-label">Preceptor/a</label>
+        <select id="cfg-cur-edit-prec-${idx}" style="margin-bottom:8px">
+          ${datos.usuarios.filter(u => u.activo==='SI' && (u.rol?.toLowerCase()==='preceptor'||u.rol?.toLowerCase()==='preceptora')).map(u =>
+            `<option value="${u.nombre}" ${u.nombre===c.preceptor?'selected':''}>${u.nombre}</option>`
+          ).join('')}
+        </select>
+        <label class="field-label">Turno</label>
+        <input type="text" id="cfg-cur-edit-turno-${idx}" value="${c.turno||''}" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px">
+          <button onclick="guardarEdicionCurso(${idx},'${c.id}')"
+            style="flex:1;padding:9px;border-radius:10px;border:none;background:#0f172a;color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+            💾 Guardar
+          </button>
+          <button onclick="document.getElementById('cfg-cur-edit-${idx}').style.display='none'"
+            style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function editarCursoInline(idx) {
+  // Cerrar otros que estén abiertos
+  datos.cursos.forEach((_, i) => {
+    const el = document.getElementById(`cfg-cur-edit-${i}`);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById(`cfg-cur-edit-${idx}`).style.display = 'block';
+}
+
+async function guardarEdicionCurso(idx, idCurso) {
+  const nuevoNombre = document.getElementById(`cfg-cur-edit-nombre-${idx}`).value.trim();
+  const nuevoPrec   = document.getElementById(`cfg-cur-edit-prec-${idx}`).value;
+  const nuevoTurno  = document.getElementById(`cfg-cur-edit-turno-${idx}`).value.trim();
+  if (!nuevoNombre) { showToast('El nombre no puede estar vacío', 'error'); return; }
+  mostrarGuardando('Guardando curso...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'editarCurso', idCurso, nombre: nuevoNombre, preceptor: nuevoPrec, turno: nuevoTurno })
+    });
+    await new Promise(r => setTimeout(r, 1000));
+    ocultarGuardando();
+    // Actualizar en memoria
+    const c = datos.cursos.find(c => c.id === idCurso);
+    if (c) { c.nombre = nuevoNombre; c.preceptor = nuevoPrec; c.turno = nuevoTurno; }
+    document.getElementById(`cfg-cur-edit-${idx}`).style.display = 'none';
+    renderCursosConfig();
+    showToast('✓ Curso actualizado', 'success');
+  } catch(e) {
+    ocultarGuardando();
+    showToast('Error al guardar', 'error');
+  }
+}
+
+async function agregarCurso() {
+  const nombre    = document.getElementById('cfg-cur-nombre').value.trim();
+  const preceptor = document.getElementById('cfg-cur-preceptor').value;
+  const turno     = document.getElementById('cfg-cur-turno').value.trim();
+  const errEl     = document.getElementById('cfg-cur-error');
+  const okEl      = document.getElementById('cfg-cur-ok');
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (!nombre)    { errEl.textContent = 'Ingresá el nombre del curso'; errEl.style.display = 'block'; return; }
+  if (!preceptor) { errEl.textContent = 'Seleccioná un preceptor/a'; errEl.style.display = 'block'; return; }
+  if (datos.cursos.some(c => c.nombre.trim().toLowerCase() === nombre.toLowerCase())) {
+    errEl.textContent = 'Ya existe un curso con ese nombre'; errEl.style.display = 'block'; return;
+  }
+
+  mostrarGuardando('Creando curso...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'agregarCurso', curso: { nombre, preceptor, turno } })
+    });
+    await new Promise(r => setTimeout(r, 1200));
+    ocultarGuardando();
+    // Agregar temporalmente en memoria con ID provisional
+    const idProv = 'C' + String(Date.now()).slice(-4);
+    datos.cursos.push({ id: idProv, nombre, preceptor, turno });
+    document.getElementById('cfg-cur-nombre').value = '';
+    document.getElementById('cfg-cur-preceptor').value = '';
+    document.getElementById('cfg-cur-turno').value = '';
+    document.getElementById('cfg-cur-ok-txt').textContent = `✓ Curso "${nombre}" creado. Recargá los datos para ver el ID definitivo.`;
+    okEl.style.display = 'block';
+    renderCursosConfig();
+    showToast('✓ Curso creado', 'success');
+  } catch(e) {
+    ocultarGuardando();
+    showToast('Error al guardar', 'error');
   }
 }
 
