@@ -319,6 +319,40 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
   color: white; font-family: inherit; font-size: 14px; font-weight: 600;
   cursor: pointer; margin-bottom: 16px;
 }
+
+/* ── MODAL PERFIL ALUMNO ── */
+#modal-alumno-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 210;
+  align-items: flex-end;
+}
+#modal-alumno-bg.open { display: flex; }
+#modal-alumno-bg .modal-sheet {
+  border-radius: 24px 24px 0 0;
+}
+.perfil-seccion-titulo {
+  font-size: 11px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .6px;
+  margin: 16px 0 8px;
+}
+.perfil-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 99px;
+  font-size: 11px; font-weight: 700;
+}
+.inasistencia-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.inasistencia-row:last-child { border-bottom: none; }
+.perfil-pct-bar {
+  height: 8px; background: var(--gray-light);
+  border-radius: 99px; overflow: hidden; margin-top: 6px;
+}
+.perfil-pct-fill {
+  height: 100%; border-radius: 99px; transition: width .4s;
+}
 </style>
 </head>
 <body>
@@ -1378,6 +1412,27 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
   </div>
 </div>
 
+<!-- MODAL PERFIL ALUMNO -->
+<div class="modal-bg" id="modal-alumno-bg" onclick="cerrarModalAlumno(event)">
+  <div class="modal-sheet" style="max-height:92vh;padding:0;overflow:hidden;display:flex;flex-direction:column">
+    <!-- Header del alumno -->
+    <div id="modal-alumno-header" style="background:linear-gradient(135deg,#1d4ed8,#2563eb);padding:20px 20px 16px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div id="modal-alumno-avatar" style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:white;border:2px solid rgba(255,255,255,0.35);flex-shrink:0;font-family:monospace"></div>
+        <div style="flex:1;min-width:0">
+          <div id="modal-alumno-nombre" style="font-size:15px;font-weight:800;color:white;line-height:1.2;margin-bottom:4px"></div>
+          <div id="modal-alumno-curso" style="font-size:12px;color:rgba(255,255,255,0.75)"></div>
+        </div>
+        <button onclick="cerrarModalAlumnoBtn()" style="background:rgba(255,255,255,0.15);border:none;color:white;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+      </div>
+      <!-- Chips de estado -->
+      <div id="modal-alumno-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"></div>
+    </div>
+    <!-- Cuerpo scrolleable -->
+    <div id="modal-alumno-body" style="overflow-y:auto;padding:16px 20px 28px;flex:1"></div>
+  </div>
+</div>
+
 <div class="saving-overlay" id="saving-overlay">
   <div class="saving-spinner"></div>
   <div class="saving-text" id="saving-text">Guardando...</div>
@@ -1576,9 +1631,13 @@ function renderLista() {
     const div = document.createElement('div');
     div.className = 'alumno-item';
     div.innerHTML = `
-      <div>
-        <div class="alumno-name">${alumno.nombre}</div>
-        <div class="alumno-num">#${String(i+1).padStart(2,'0')}</div>
+      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+        <div style="min-width:0">
+          <div class="alumno-name">${alumno.nombre}</div>
+          <div class="alumno-num">#${String(i+1).padStart(2,'0')}</div>
+        </div>
+        <button onclick="abrirPerfilAlumno('${alumno.id}','${alumno.nombre.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','${cursoId}')" title="Ver perfil"
+          style="background:var(--blue-light);border:1.5px solid var(--blue);border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px">👁</button>
       </div>
       <div class="estado-btns">
         <button class="est-btn ${est==='Presente'?'p-active':''}" onclick="setEst('${key}','${alumno.nombre}','Presente',this)" title="Presente">✓</button>
@@ -5279,17 +5338,20 @@ function renderListaLegajos() {
     const iniciales = a.nombre.split(/[,\s]+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('');
     const avatarBg = a.estado === 'completo' ? '#eff6ff' : a.estado === 'incompleto' ? '#fef3c7' : '#fee2e2';
     const avatarColor = a.estado === 'completo' ? '#2563eb' : a.estado === 'incompleto' ? '#d97706' : '#dc2626';
+    const nomEsc = a.nombre.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     return `
-    <div onclick="abrirLegajoAlumno('${a.id}','${a.nombre.replace(/'/g,"\\'")}','${a.curso}')"
-      style="background:white;border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1.5px solid var(--border);display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 2px 12px rgba(37,99,235,0.06)">
+    <div style="background:white;border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1.5px solid var(--border);display:flex;align-items:center;gap:14px;box-shadow:0 2px 12px rgba(37,99,235,0.06)">
       <div style="width:44px;height:44px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:${avatarColor};flex-shrink:0;font-family:monospace">${iniciales}</div>
-      <div style="flex:1;min-width:0">
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="abrirLegajoAlumno('${a.id}','${nomEsc}','${a.curso}')">
         <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nombre}</div>
         <div style="font-size:12px;color:var(--text2);margin-top:2px">${a.curso}</div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
         <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;background:${cfg.bg};color:${cfg.color}">${cfg.chip}</span>
-        <span style="color:var(--text2);font-size:18px">›</span>
+        <button onclick="abrirPerfilAlumno('${a.id}','${nomEsc}','${a.idCurso}')" title="Ver perfil de asistencia"
+          style="background:var(--blue-light);border:1.5px solid var(--blue);border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap">
+          👁 Perfil
+        </button>
       </div>
     </div>`;
   }).join('');
@@ -5804,6 +5866,204 @@ function normNombre(n) {
   return String(n || '').toUpperCase().trim().replace(/\s+/g, ' ');
 }
 
+// =============================================
+// PANEL DE SEGUIMIENTO INDIVIDUAL DEL ALUMNO
+// =============================================
+
+function cerrarModalAlumno(e) {
+  if (e.target === document.getElementById('modal-alumno-bg'))
+    document.getElementById('modal-alumno-bg').classList.remove('open');
+}
+function cerrarModalAlumnoBtn() {
+  document.getElementById('modal-alumno-bg').classList.remove('open');
+}
+
+async function abrirPerfilAlumno(idAlumno, nombreAlumno, idCurso) {
+  // Abrir modal inmediatamente con skeleton
+  const bg = document.getElementById('modal-alumno-bg');
+  bg.classList.add('open');
+
+  // Header básico mientras carga
+  const iniciales = nombreAlumno.split(/[,\s]+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('');
+  document.getElementById('modal-alumno-avatar').textContent = iniciales;
+  document.getElementById('modal-alumno-nombre').textContent = nombreAlumno;
+  const curso = datos.cursos.find(c => c.id === idCurso);
+  document.getElementById('modal-alumno-curso').textContent = curso ? `${curso.nombre} · ${curso.preceptor}` : '—';
+  document.getElementById('modal-alumno-chips').innerHTML = '';
+  document.getElementById('modal-alumno-body').innerHTML = `
+    <div style="text-align:center;padding:32px;color:rgba(255,255,255,0.7)">
+      <div class="loading-spinner" style="margin:0 auto 12px;border-color:rgba(255,255,255,0.3);border-top-color:white"></div>
+      <div style="font-size:13px">Cargando perfil...</div>
+    </div>`;
+
+  // ── 1. Datos de asistencia (locales) ──
+  const { desde, hasta, label } = getRango(periodoActual());
+  const regsAlumno = allRegistros.filter(r => r.idCurso === idCurso && r.fecha >= desde && r.fecha <= hasta);
+  const stats = calcularStatsAlumno(nombreAlumno, regsAlumno);
+
+  // Últimas 5 ausencias (ausentes o tardanzas) — todos los registros, no solo cuatrimestre
+  const todosRegs = allRegistros.filter(r => r.idCurso === idCurso).sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const ultimasInasistencias = [];
+  for (const r of todosRegs) {
+    let estado = r.data[nombreAlumno];
+    if (estado === undefined) {
+      const claveReal = Object.keys(r.data).find(k => normNombre(k) === normNombre(nombreAlumno));
+      if (claveReal) estado = r.data[claveReal];
+    }
+    if (estado && estado !== 'Presente') {
+      ultimasInasistencias.push({ fecha: r.fecha, estado });
+      if (ultimasInasistencias.length >= 5) break;
+    }
+  }
+
+  // ── 2. Estado en Progresar (local si está cargado) ──
+  const enProgresar = progresarData.some(r =>
+    normNombre(r.alumno) === normNombre(nombreAlumno) && r.idCurso === idCurso
+  );
+
+  // ── 3. Estado del legajo (local si está en cache) ──
+  const legajoCacheEntry = legajosCache.find(l => l.id === idAlumno);
+  const estadoLegajo = legajoCacheEntry ? legajoCacheEntry.estado : null;
+
+  // ── 4. Condición especial y notas (fetch solo si es necesario) ──
+  let condEspecial = { ppat: false, prisionDomiciliaria: false, viaExcepcion: false, notasInternas: '' };
+  let tieneFormulario = false;
+  try {
+    const res = await fetch(`${SCRIPT_URL}?action=getLegajo&idAlumno=${encodeURIComponent(idAlumno)}`);
+    const json = await res.json();
+    if (json.status === 'ok') {
+      condEspecial.ppat              = !!json.legajo.ppat;
+      condEspecial.prisionDomiciliaria = !!json.legajo.prisionDomiciliaria;
+      condEspecial.viaExcepcion      = !!json.legajo.viaExcepcion;
+      condEspecial.notasInternas     = json.legajo.notasInternas || '';
+      tieneFormulario                = !!json.legajo.tieneFormulario;
+    }
+  } catch(e) { /* sin conexión — mostramos lo que tenemos */ }
+
+  // ── Render del perfil ──
+  renderPerfilAlumno({
+    idAlumno, nombreAlumno, idCurso, stats, label,
+    ultimasInasistencias, enProgresar,
+    estadoLegajo, tieneFormulario, condEspecial
+  });
+}
+
+function periodoActual() {
+  const mes = new Date().getMonth() + 1; // 1-12
+  if (mes >= 3 && mes <= 6)  return '1';
+  if (mes >= 7 && mes <= 11) return '2';
+  return 'anual';
+}
+
+function renderPerfilAlumno({ idAlumno, nombreAlumno, idCurso, stats, label,
+    ultimasInasistencias, enProgresar, estadoLegajo, tieneFormulario, condEspecial }) {
+
+  // ── Chips del header ──
+  const chips = [];
+  const pct = stats.pct;
+  if (pct !== null) {
+    const chipPct = pct >= 75
+      ? `<span class="perfil-chip" style="background:rgba(22,163,74,0.2);color:#bbf7d0">✓ ${pct}% asistencia</span>`
+      : `<span class="perfil-chip" style="background:rgba(220,38,38,0.25);color:#fca5a5">⚠ ${pct}% — en riesgo</span>`;
+    chips.push(chipPct);
+  }
+  if (enProgresar) chips.push(`<span class="perfil-chip" style="background:rgba(124,58,237,0.2);color:#ddd6fe">🎓 Progresar</span>`);
+  if (condEspecial.ppat)               chips.push(`<span class="perfil-chip" style="background:rgba(37,99,235,0.2);color:#bfdbfe">📋 PPAT</span>`);
+  if (condEspecial.prisionDomiciliaria) chips.push(`<span class="perfil-chip" style="background:rgba(220,38,38,0.2);color:#fca5a5">🔒 P. Dom.</span>`);
+  if (condEspecial.viaExcepcion)        chips.push(`<span class="perfil-chip" style="background:rgba(217,119,6,0.2);color:#fde68a">⚡ Vía Excep.</span>`);
+  document.getElementById('modal-alumno-chips').innerHTML = chips.join('');
+
+  // ── Cuerpo ──
+  const pctColor = pct === null ? '#64748b' : pct >= 75 ? '#16a34a' : '#dc2626';
+  const pctFill  = pct ?? 0;
+  const pctBg    = pct === null ? '#e2e8f0' : pct >= 75 ? 'linear-gradient(90deg,#16a34a,#4ade80)' : 'linear-gradient(90deg,#dc2626,#f87171)';
+
+  // Sección asistencia
+  let html = `
+  <div class="perfil-seccion-titulo">📊 Asistencia — ${label}</div>
+  <div class="card" style="padding:14px 16px;margin-bottom:4px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:13px;color:var(--text2)">${stats.dias} días de clase</span>
+      <span style="font-size:22px;font-weight:900;color:${pctColor}">${pct !== null ? pct+'%' : '—'}</span>
+    </div>
+    <div class="perfil-pct-bar"><div class="perfil-pct-fill" style="width:${pctFill}%;background:${pctBg}"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px">
+      <div style="text-align:center;background:#dcfce7;border-radius:8px;padding:8px 4px">
+        <div style="font-size:18px;font-weight:800;color:#16a34a">${stats.p}</div>
+        <div style="font-size:10px;color:#16a34a;font-weight:600">Pres.</div>
+      </div>
+      <div style="text-align:center;background:#fee2e2;border-radius:8px;padding:8px 4px">
+        <div style="font-size:18px;font-weight:800;color:#dc2626">${stats.aus}</div>
+        <div style="font-size:10px;color:#dc2626;font-weight:600">Aus.</div>
+      </div>
+      <div style="text-align:center;background:#fef3c7;border-radius:8px;padding:8px 4px">
+        <div style="font-size:18px;font-weight:800;color:#d97706">${stats.t}</div>
+        <div style="font-size:10px;color:#d97706;font-weight:600">Tard.</div>
+      </div>
+      <div style="text-align:center;background:#fff7ed;border-radius:8px;padding:8px 4px">
+        <div style="font-size:18px;font-weight:800;color:#ea580c">${stats.ra}</div>
+        <div style="font-size:10px;color:#ea580c;font-weight:600">RA</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Últimas inasistencias
+  html += `<div class="perfil-seccion-titulo">📅 Últimas inasistencias</div>
+  <div class="card" style="padding:4px 16px;margin-bottom:4px">`;
+  if (!ultimasInasistencias.length) {
+    html += `<div style="text-align:center;padding:16px;color:var(--text2);font-size:13px">🎉 Sin inasistencias registradas</div>`;
+  } else {
+    ultimasInasistencias.forEach(({ fecha, estado }) => {
+      const esAus = estado === 'Ausente';
+      const esT   = estado === 'Tardanza';
+      const esRA  = estado.startsWith('RA');
+      const chipCls = esAus ? 'chip-a' : esT ? 'chip-t' : esRA ? 'chip-ra' : 'chip-n';
+      const chipTxt = esAus ? '✗ Ausente' : esT ? '⏰ Tardanza' : esRA ? `🚪 ${estado}` : estado;
+      html += `<div class="inasistencia-row">
+        <span style="font-size:13px;color:var(--text)">${formatFecha(fecha)}</span>
+        <span class="chip ${chipCls}">${chipTxt}</span>
+      </div>`;
+    });
+  }
+  html += `</div>`;
+
+  // Progresar
+  html += `<div class="perfil-seccion-titulo">🎓 Plan Progresar</div>
+  <div class="card" style="padding:12px 16px;margin-bottom:4px;display:flex;align-items:center;gap:10px">
+    <div style="font-size:24px">${enProgresar ? '✅' : '➖'}</div>
+    <div style="font-size:13px;font-weight:600;color:var(--text)">${enProgresar ? 'Anotado/a en Progresar' : 'No está en Progresar'}</div>
+  </div>`;
+
+  // Legajo
+  const legajoMap = {
+    completo:   { icon:'✅', txt:'Legajo completo',   color:'#16a34a', bg:'#dcfce7' },
+    incompleto: { icon:'⚠️',  txt:'Legajo incompleto', color:'#d97706', bg:'#fef3c7' },
+    sinlegajo:  { icon:'❌',  txt:'Sin legajo',        color:'#dc2626', bg:'#fee2e2' },
+    null:       { icon:'❓',  txt:'Estado desconocido (recargá legajos)', color:'#64748b', bg:'#f1f5f9' }
+  };
+  const lm = legajoMap[estadoLegajo] || legajoMap[null];
+  html += `<div class="perfil-seccion-titulo">🗂️ Legajo digital</div>
+  <div class="card" style="padding:12px 16px;margin-bottom:4px;display:flex;align-items:center;gap:10px;background:${lm.bg}">
+    <div style="font-size:22px">${lm.icon}</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:${lm.color}">${lm.txt}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">${tieneFormulario ? 'Formulario respondido' : 'Sin formulario respondido'}</div>
+    </div>
+  </div>`;
+
+  // Notas internas (solo si hay)
+  if (condEspecial.notasInternas) {
+    html += `<div class="perfil-seccion-titulo">📝 Notas internas</div>
+    <div class="card" style="padding:12px 16px;margin-bottom:4px;background:#f8fafc;border:1.5px solid var(--border)">
+      <div style="font-size:13px;color:var(--text);line-height:1.5">${condEspecial.notasInternas}</div>
+    </div>`;
+  }
+
+  document.getElementById('modal-alumno-body').innerHTML = html;
+}
+
+// =============================================
+
 function calcularStatsAlumno(nombreAlumno, regs) {
   let p=0, aus=0, t=0, ra=0;
   const nombreNorm = normNombre(nombreAlumno);
@@ -5920,6 +6180,7 @@ function renderAsistenciaCurso(pre) {
       <div style="flex:1;font-size:11px;font-weight:700;color:white;text-align:center">T</div>
       <div style="flex:1;font-size:11px;font-weight:700;color:white;text-align:center">RA</div>
       <div style="flex:1;font-size:12px;font-weight:900;color:white;text-align:center">%</div>
+      <div style="width:28px;flex-shrink:0"></div>
     </div>`;
 
   stats.forEach((s, i) => {
@@ -5927,14 +6188,17 @@ function renderAsistenciaCurso(pre) {
     const pctColor = s.pct === null ? '#94a3b8' : s.pct >= 75 ? '#16a34a' : '#dc2626';
     const pctBg    = s.pct === null ? '' : s.pct >= 75 ? '' : 'background:#fee2e2;border-radius:6px;padding:1px 4px;';
     const pctTxt   = s.pct === null ? '—' : s.pct + '%';
+    const nomEsc   = s.alumno.nombre.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     html += `
-    <div style="background:${bg};padding:8px 14px;display:flex;gap:4px;border-left:1.5px solid #e2e8f0;border-right:1.5px solid #e2e8f0;border-bottom:1px solid #f1f5f9">
+    <div style="background:${bg};padding:8px 14px;display:flex;gap:4px;align-items:center;border-left:1.5px solid #e2e8f0;border-right:1.5px solid #e2e8f0;border-bottom:1px solid #f1f5f9">
       <div style="flex:3;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.alumno.nombre}</div>
       <div style="flex:1;font-size:12px;font-weight:700;color:#16a34a;text-align:center">${s.p}</div>
       <div style="flex:1;font-size:12px;font-weight:700;color:#dc2626;text-align:center">${s.aus}</div>
       <div style="flex:1;font-size:12px;font-weight:700;color:#d97706;text-align:center">${s.t}</div>
       <div style="flex:1;font-size:12px;font-weight:700;color:#ea580c;text-align:center">${s.ra || 0}</div>
       <div style="flex:1;font-size:13px;font-weight:900;color:${pctColor};text-align:center;${pctBg}">${pctTxt}</div>
+      <button onclick="abrirPerfilAlumno('${s.alumno.id}','${nomEsc}','${cursoId}')" title="Ver perfil"
+        style="width:28px;height:28px;flex-shrink:0;background:var(--blue-light);border:1.5px solid var(--blue);border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center">👁</button>
     </div>`;
   });
 
