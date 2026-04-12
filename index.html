@@ -3823,6 +3823,7 @@ function renderResumenCursoProfesor() {
     <div style="flex:1;font-size:11px;font-weight:700;color:white;text-align:center">T</div>
     <div style="flex:1;font-size:11px;font-weight:700;color:white;text-align:center">RA</div>
     <div style="flex:1;font-size:11px;font-weight:700;color:white;text-align:center">%</div>
+    <div style="width:26px;flex-shrink:0"></div>
   </div>`;
 
   alumnos.forEach((a, i) => {
@@ -3840,13 +3841,16 @@ function renderResumenCursoProfesor() {
     const pct = dias ? Math.round(p/dias*100) : 0;
     const bg = i%2===0 ? '#f8fafc' : 'white';
     const pctColor = pct >= 75 ? '#16a34a' : '#dc2626';
-    html += `<div style="background:${bg};padding:8px 14px;display:flex;gap:4px;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
+    const nomEsc = a.nombre.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    html += `<div style="background:${bg};padding:8px 14px;display:flex;gap:4px;align-items:center;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
       <div style="flex:2;font-size:12px;font-weight:600;color:var(--text1)">${a.nombre}</div>
       <div style="flex:1;font-size:12px;color:#16a34a;font-weight:700;text-align:center">${p}</div>
       <div style="flex:1;font-size:12px;color:#dc2626;font-weight:700;text-align:center">${aus}</div>
       <div style="flex:1;font-size:12px;color:#d97706;font-weight:700;text-align:center">${t}</div>
       <div style="flex:1;font-size:12px;color:#ea580c;font-weight:700;text-align:center">${ra||0}</div>
       <div style="flex:1;font-size:12px;color:${pctColor};font-weight:700;text-align:center">${pct}%</div>
+      <button onclick="abrirPerfilAlumno('${a.id}','${nomEsc}','${cursoId}')" title="Ver perfil"
+        style="width:26px;height:26px;flex-shrink:0;background:var(--blue-light);border:1.5px solid var(--blue);border-radius:7px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">👁</button>
     </div>`;
   });
   html += `<div style="background:#f1f5f9;border-radius:0 0 12px 12px;padding:6px 14px;font-size:10px;color:var(--text2);border:1px solid #e2e8f0;border-top:none">
@@ -3967,7 +3971,7 @@ function renderHistorialDiaProfesor() {
     <div class="stat-card"><div class="stat-num">${t}</div><div class="stat-lbl">Tardanzas</div></div>
     ${ra>0?`<div class="stat-card" style="border-color:#ea580c"><div class="stat-num" style="color:#ea580c">${ra}</div><div class="stat-lbl">Ret. Antic.</div></div>`:''}
   </div>
-  <div style="background:#0d9488;border-radius:12px 12px 0 0;padding:8px 14px;display:flex;justify-content:space-between">
+  <div style="background:#0d9488;border-radius:12px 12px 0 0;padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
     <div style="font-size:11px;font-weight:700;color:white">Alumno/a</div>
     <div style="font-size:11px;font-weight:700;color:white">Estado</div>
   </div>`;
@@ -3980,8 +3984,13 @@ function renderHistorialDiaProfesor() {
     else if (estado==='Ausente') badgeStyle = 'background:#fee2e2;color:#dc2626';
     else if (estado==='Tardanza') badgeStyle = 'background:#fef9c3;color:#d97706';
     else if (estado.startsWith('RA')) badgeStyle = 'background:#fff7ed;color:#ea580c';
+    const nomEsc = a.nombre.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     html += `<div style="background:${bg};padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
-      <div style="font-size:12px;font-weight:600;color:var(--text1)">${a.nombre}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="abrirPerfilAlumno('${a.id}','${nomEsc}','${cursoId}')" title="Ver perfil"
+          style="background:var(--blue-light);border:1.5px solid var(--blue);border-radius:7px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:12px">👁</button>
+        <div style="font-size:12px;font-weight:600;color:var(--text1)">${a.nombre}</div>
+      </div>
       <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;${badgeStyle}">${estado.startsWith('RA')?'🚪 '+estado:estado}</span>
     </div>`;
   });
