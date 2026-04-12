@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="CENS Digital">
 <meta name="theme-color" content="#1d4ed8">
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -5923,20 +5924,36 @@ async function abrirPerfilAlumno(idAlumno, nombreAlumno, idCurso) {
 
   // ── 3. Estado del legajo (local si está en cache) ──
   const legajoCacheEntry = legajosCache.find(l => l.id === idAlumno);
-  const estadoLegajo = legajoCacheEntry ? legajoCacheEntry.estado : null;
+  let estadoLegajo = legajoCacheEntry ? legajoCacheEntry.estado : null;
 
-  // ── 4. Condición especial y notas (fetch solo si es necesario) ──
+  // ── 4. Condición especial, notas y tieneFormulario (siempre via fetch) ──
   let condEspecial = { ppat: false, prisionDomiciliaria: false, viaExcepcion: false, notasInternas: '' };
   let tieneFormulario = false;
   try {
     const res = await fetch(`${SCRIPT_URL}?action=getLegajo&idAlumno=${encodeURIComponent(idAlumno)}`);
     const json = await res.json();
     if (json.status === 'ok') {
-      condEspecial.ppat              = !!json.legajo.ppat;
+      condEspecial.ppat               = !!json.legajo.ppat;
       condEspecial.prisionDomiciliaria = !!json.legajo.prisionDomiciliaria;
-      condEspecial.viaExcepcion      = !!json.legajo.viaExcepcion;
-      condEspecial.notasInternas     = json.legajo.notasInternas || '';
-      tieneFormulario                = !!json.legajo.tieneFormulario;
+      condEspecial.viaExcepcion       = !!json.legajo.viaExcepcion;
+      condEspecial.notasInternas      = json.legajo.notasInternas || '';
+      tieneFormulario                 = !!json.legajo.tieneFormulario;
+
+      // Si el cache de legajos no estaba cargado, derivamos el estado
+      // desde la respuesta del servidor (fuente de verdad)
+      if (estadoLegajo === null) {
+        const tieneExtras = !!(json.legajo.notasInternas ||
+                               json.legajo.ppat ||
+                               json.legajo.prisionDomiciliaria ||
+                               json.legajo.viaExcepcion);
+        if (tieneFormulario) {
+          estadoLegajo = 'completo';
+        } else if (tieneExtras) {
+          estadoLegajo = 'incompleto';
+        } else {
+          estadoLegajo = 'sinlegajo';
+        }
+      }
     }
   } catch(e) { /* sin conexión — mostramos lo que tenemos */ }
 
