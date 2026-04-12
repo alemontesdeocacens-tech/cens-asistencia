@@ -5801,17 +5801,15 @@ async function generarInformeCondicionExcel() {
  * Devuelve { p, aus, t, ra, dias, pct }
  */
 function calcularStatsAlumno(nombreAlumno, regs) {
-  let p=0, aus=0, t=0, ra=0, dias=0;
+  let p=0, aus=0, t=0, ra=0;
   regs.forEach(r => {
     const estado = r.data[nombreAlumno];
-    if (estado !== undefined) {
-      dias++;
-      if (estado === 'Presente') p++;
-      else if (estado === 'Ausente') aus++;
-      else if (estado === 'Tardanza') t++;
-      else if (estado.startsWith('RA')) ra++;
-    }
+    if (estado === 'Presente') p++;
+    else if (estado === 'Tardanza') t++;
+    else if (estado && estado.startsWith('RA')) ra++;
+    else aus++; // Ausente explícito o sin registro ese día = ausente
   });
+  const dias = regs.length; // Total de días que el curso tuvo clase (igual para todos)
   const pct = dias ? Math.round(p / dias * 100) : null;
   return { p, aus, t, ra, dias, pct };
 }
