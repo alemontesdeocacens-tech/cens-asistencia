@@ -5800,14 +5800,24 @@ async function generarInformeCondicionExcel() {
  * Calcula los stats de un alumno en un rango de registros.
  * Devuelve { p, aus, t, ra, dias, pct }
  */
+function normNombre(n) {
+  return String(n || '').toUpperCase().trim().replace(/\s+/g, ' ');
+}
+
 function calcularStatsAlumno(nombreAlumno, regs) {
   let p=0, aus=0, t=0, ra=0;
+  const nombreNorm = normNombre(nombreAlumno);
   regs.forEach(r => {
-    const estado = r.data[nombreAlumno];
+    // Buscar primero por clave exacta, si no encontró buscar normalizando
+    let estado = r.data[nombreAlumno];
+    if (estado === undefined) {
+      const claveReal = Object.keys(r.data).find(k => normNombre(k) === nombreNorm);
+      if (claveReal) estado = r.data[claveReal];
+    }
     if (estado === 'Presente') p++;
     else if (estado === 'Tardanza') t++;
     else if (estado && estado.startsWith('RA')) ra++;
-    else aus++; // Ausente explícito o sin registro ese día = ausente
+    else aus++; // Ausente explícito, sin registro ese día, o nombre no encontrado = ausente
   });
   const dias = regs.length; // Total de días que el curso tuvo clase (igual para todos)
   const pct = dias ? Math.round(p / dias * 100) : null;
