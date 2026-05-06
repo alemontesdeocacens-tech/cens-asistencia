@@ -1125,6 +1125,14 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
           <button class="btn-primary" style="flex:1;background:#16a34a" onclick="generarInformeEdadesExcel()">📊 Excel</button>
         </div>
       </div>
+      <div class="card" style="border:1.5px solid #7c3aed;background:#f5f3ff">
+        <div style="font-weight:700;color:#4c1d95;margin-bottom:6px;font-size:13px">🏫 Edades por Sede / Anexo</div>
+        <div style="font-size:12px;color:#5b21b6;margin-bottom:12px">Informe de rangos etarios desglosado por cada sede y anexo institucional.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:1;background:#7c3aed" onclick="generarInformeEdadesSedePDF()">📄 PDF</button>
+          <button class="btn-primary" style="flex:1;background:#059669" onclick="generarInformeEdadesSedeExcel()">📊 Excel</button>
+        </div>
+      </div>
     </div><!-- /dtab-exportar -->
 
     <!-- TAB LEGAJOS — DIRECTORA -->
@@ -4819,6 +4827,222 @@ function generarInformeEdadesExcel() {
   showToast('✓ Excel por rangos de edad generado', 'success');
 }
 
+// =============================================
+// INFORME EDADES POR SEDE / ANEXO
+// =============================================
+
+function construirDatosEdadesPorSede() {
+  const alumnos = (datos.alumnos || []).filter(a => a.activo==='SI'||a.activo===true||a.activo==='si');
+  const cursos  = datos.cursos || [];
+
+  // Orden fijo de sedes
+  const ORDEN_SEDES = ['Sede T. T.','Sede T. N.','Anexo Canadá','Anexo Atalaya','Anexo Torero','Veteranos T. N.','Veteranos T. T.'];
+
+  // Inicializar estructura por sede
+  const porSede = {};
+  ORDEN_SEDES.forEach(nombre => {
+    porSede[nombre] = {
+      nombre,
+      rangos: { excepcion:[], r18_25:[], r26_40:[], r41_60:[], r61mas:[], sinDato:[] }
+    };
+  });
+
+  alumnos.forEach(a => {
+    const curso   = cursos.find(c => c.id === a.idCurso);
+    const preceptor = curso ? (curso.preceptor || '') : '';
+    const sedeInfo  = MAPA_SEDES[preceptor] || { nombre: preceptor || 'Sin sede', turno: '' };
+    const sedeNombre = sedeInfo.nombre;
+
+    if (!porSede[sedeNombre]) {
+      porSede[sedeNombre] = {
+        nombre: sedeNombre,
+        rangos: { excepcion:[], r18_25:[], r26_40:[], r41_60:[], r61mas:[], sinDato:[] }
+      };
+    }
+
+    const edad  = calcularEdad(a.fechaNacimiento);
+    const clave = clasificarEdad(edad);
+
+    porSede[sedeNombre].rangos[clave].push({
+      nombre:  a.nombre,
+      dni:     a.dni || '—',
+      curso:   curso ? curso.nombre : '—',
+      fechaNac: a.fechaNacimiento || '',
+      edad:    edad !== null ? edad : '—'
+    });
+  });
+
+  // Ordenar alumnos por nombre dentro de cada rango y sede
+  Object.values(porSede).forEach(s => {
+    RANGOS_ORDEN.forEach(k => {
+      s.rangos[k].sort((a,b) => a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'}));
+    });
+  });
+
+  // Solo devolver sedes que tienen alumnos
+  return Object.values(porSede).filter(s => RANGOS_ORDEN.some(k => s.rangos[k].length > 0));
+}
+
+function generarInformeEdadesSedePDF() {
+  const sedes = construirDatosEdadesPorSede();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const M = 14, W = 210, pW = W - M * 2;
+  const hoy = new Date().toLocaleDateString('es-AR');
+  let y = 14;
+  let primerPagina = true;
+
+  sedes.forEach(sede => {
+    const totalSede = RANGOS_ORDEN.reduce((s,k) => s + sede.rangos[k].length, 0);
+    if (totalSede === 0) return;
+
+    // Nueva página por sede (salvo la primera)
+    if (!primerPagina) { doc.addPage(); y = 14; }
+    primerPagina = false;
+
+    // Encabezado general
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(40,40,40);
+    doc.text('CENS N° 451 – Informe de Edades por Sede / Anexo', M, y); y += 6;
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
+    doc.text(`Generado: ${hoy}`, M, y); y += 10;
+
+    // Título de sede
+    doc.setFillColor(88,28,135);
+    doc.rect(M, y-4, pW, 9, 'F');
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text(`${sede.nombre}  (${totalSede} alumnos activos)`, M+3, y+2);
+    y += 13; doc.setTextColor(40,40,40);
+
+    // Resumen de rangos de esta sede
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('Resumen:', M, y); y += 5;
+    RANGOS_ORDEN.forEach(k => {
+      const cant = sede.rangos[k].length;
+      if (cant === 0) return;
+      const pct = totalSede > 0 ? ` (${Math.round(cant/totalSede*100)}%)` : '';
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      doc.text(`• ${RANGOS_LABEL[k]}: ${cant} alumno/s${pct}`, M+4, y); y += 4.5;
+    });
+    y += 4;
+
+    // Detalle por rango
+    RANGOS_ORDEN.forEach(k => {
+      const lista = sede.rangos[k];
+      if (lista.length === 0) return;
+
+      if (y > 255) { doc.addPage(); y = 14; }
+
+      // Cabecera de rango
+      doc.setFillColor(237,233,254);
+      doc.rect(M, y-3.5, pW, 7, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(76,29,149);
+      doc.text(`${RANGOS_LABEL[k]}  (${lista.length})`, M+2, y+1);
+      y += 9; doc.setTextColor(40,40,40);
+
+      // Cabecera columnas
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+      doc.text('Apellido y Nombre', M, y);
+      doc.text('DNI', M+78, y);
+      doc.text('F. Nac.', M+102, y);
+      doc.text('Edad', M+128, y);
+      doc.text('Curso', M+142, y);
+      y += 3.5;
+      doc.setDrawColor(200,200,200);
+      doc.line(M, y, M+pW, y); y += 3;
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      lista.forEach((a, i) => {
+        if (y > 280) { doc.addPage(); y = 14; }
+        if (i % 2 === 0) {
+          doc.setFillColor(250,248,255);
+          doc.rect(M, y-3, pW, 5.5, 'F');
+        }
+        doc.text(a.nombre.substring(0,38), M, y);
+        doc.text(String(a.dni), M+78, y);
+        const fn = a.fechaNac ? (parsearFechaNac(a.fechaNac)||{toLocaleDateString:()=>'—'}).toLocaleDateString('es-AR') : '—';
+        doc.text(fn, M+102, y);
+        doc.text(String(a.edad), M+128, y);
+        doc.text(a.curso.substring(0,20), M+142, y);
+        y += 5.5;
+      });
+      y += 5;
+    });
+  });
+
+  doc.save(`Informe_Edades_Sede_${new Date().toISOString().split('T')[0]}.pdf`);
+  showToast('✓ PDF por sede generado', 'success');
+}
+
+function generarInformeEdadesSedeExcel() {
+  const sedes = construirDatosEdadesPorSede();
+  const wb = XLSX.utils.book_new();
+  const hoy = new Date().toLocaleDateString('es-AR');
+
+  // ── Hoja resumen general ──
+  const rowsRes = [
+    [`CENS N° 451 – Informe de Edades por Sede / Anexo – ${hoy}`],
+    [],
+    ['Sede / Anexo', 'Excepción (<18)', '18–25', '26–40', '41–60', 'Más de 60', 'Sin fecha', 'TOTAL']
+  ];
+
+  sedes.forEach(s => {
+    const r = s.rangos;
+    const total = RANGOS_ORDEN.reduce((sum,k) => sum + r[k].length, 0);
+    if (total === 0) return;
+    rowsRes.push([
+      s.nombre,
+      r.excepcion.length, r.r18_25.length, r.r26_40.length,
+      r.r41_60.length, r.r61mas.length, r.sinDato.length,
+      total
+    ]);
+  });
+
+  // Fila de totales
+  rowsRes.push([]);
+  const totales = ['TOTAL'];
+  RANGOS_ORDEN.forEach(k => {
+    totales.push(sedes.reduce((s,sede) => s + sede.rangos[k].length, 0));
+  });
+  totales.push(sedes.reduce((s,sede) => s + RANGOS_ORDEN.reduce((t,k) => t + sede.rangos[k].length, 0), 0));
+  rowsRes.push(totales);
+
+  const wsRes = XLSX.utils.aoa_to_sheet(rowsRes);
+  wsRes['!cols'] = [{wch:22},{wch:16},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen por sede');
+
+  // ── Una hoja por sede ──
+  sedes.forEach(sede => {
+    const totalSede = RANGOS_ORDEN.reduce((s,k) => s + sede.rangos[k].length, 0);
+    if (totalSede === 0) return;
+
+    const rows = [
+      [`${sede.nombre} – Informe de Edades – ${hoy}`],
+      [`Total alumnos: ${totalSede}`],
+      []
+    ];
+
+    RANGOS_ORDEN.forEach(k => {
+      const lista = sede.rangos[k];
+      if (lista.length === 0) return;
+      rows.push([RANGOS_LABEL[k].toUpperCase(), '', '', '', '']);
+      rows.push(['Apellido y Nombre', 'DNI', 'Fecha de Nacimiento', 'Edad', 'Curso']);
+      lista.forEach(a => {
+        const fn = a.fechaNac ? (parsearFechaNac(a.fechaNac)||{toLocaleDateString:()=>'—'}).toLocaleDateString('es-AR') : '—';
+        rows.push([a.nombre, a.dni, fn, a.edad, a.curso]);
+      });
+      rows.push([`Subtotal: ${lista.length}`]);
+      rows.push([]);
+    });
+
+    const sheetName = sede.nombre.substring(0, 31); // Excel max 31 chars
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:35},{wch:14},{wch:20},{wch:8},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, `Informe_Edades_Sede_${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('✓ Excel por sede generado', 'success');
+}
 
 function iniciarGestionar() {
   const misCursos = datos.cursos.filter(c => c.preceptor === currentUser.nombre);
