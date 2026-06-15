@@ -146,7 +146,41 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
   background: rgba(255,255,255,0.2); border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; font-weight: 700; color: white;
+  cursor: pointer; overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.4);
+  transition: transform .15s, border-color .15s;
 }
+.topbar-avatar:hover { transform: scale(1.08); border-color: white; }
+.topbar-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+#modal-foto-perfil {
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.55); align-items:center; justify-content:center;
+}
+#modal-foto-perfil.open { display:flex; }
+.foto-modal-box {
+  background:white; border-radius:20px; padding:28px 24px;
+  width:88%; max-width:340px; text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+}
+.foto-modal-avatar-preview {
+  width:88px; height:88px; border-radius:50%; margin:0 auto 14px;
+  background:linear-gradient(135deg,#0c44a0,#0984e3);
+  display:flex; align-items:center; justify-content:center;
+  font-size:34px; font-weight:900; color:white;
+  overflow:hidden; border:3px solid #e2e8f0;
+}
+.foto-modal-avatar-preview img { width:100%; height:100%; object-fit:cover; }
+.foto-modal-title { font-size:17px; font-weight:800; color:#0f172a; margin-bottom:4px; }
+.foto-modal-sub { font-size:12px; color:#64748b; margin-bottom:20px; }
+.foto-modal-btn {
+  width:100%; padding:12px; border-radius:12px; border:none;
+  font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;
+  margin-bottom:10px; transition:opacity .15s;
+}
+.foto-modal-btn:hover { opacity:.88; }
+.foto-modal-btn.primary { background:#0984e3; color:white; }
+.foto-modal-btn.danger  { background:#fee2e2; color:#dc2626; }
+.foto-modal-btn.cancel  { background:#f1f5f9; color:#64748b; }
 .topbar-name { font-weight: 700; color: white; font-size: 15px; }
 .topbar-role { font-size: 11px; color: rgba(255,255,255,0.7); }
 .topbar-logout {
@@ -394,6 +428,67 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
 .ball-bounce { animation: bounce-ball 3.2s ease-in-out infinite; display:inline-block; }
 .ball-shadow { animation: squish-shadow 3.2s ease-in-out infinite; display:block; width:30px; height:6px; background:rgba(9,132,227,0.25); border-radius:50%; margin:0 auto; }
 .wave-letter { display:inline-block; animation: wave-letter 1.2s ease-in-out infinite; }
+
+/* ── BARRA BÚSQUEDA GLOBAL ─────────────────────────── */
+#barra-busqueda-global {
+  background:linear-gradient(135deg,#0c44a0,#0984e3);
+  overflow:hidden;
+  max-height:0;
+  transition: max-height .35s ease, padding .35s ease;
+  padding:0 16px;
+}
+#barra-busqueda-global.abierta {
+  max-height:420px;
+  padding:12px 16px 14px;
+}
+.busq-input-wrap {
+  display:flex; gap:8px; align-items:center; margin-bottom:0;
+}
+.busq-input {
+  flex:1; padding:10px 14px; border-radius:12px; border:none;
+  font-size:14px; font-family:inherit; outline:none;
+  background:rgba(255,255,255,0.95); color:#0f172a;
+}
+.busq-input::placeholder { color:#94a3b8; }
+.busq-close-btn {
+  background:rgba(255,255,255,0.2); border:none; color:white;
+  width:36px; height:36px; border-radius:10px; font-size:18px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+#busq-resultados {
+  margin-top:10px; max-height:300px; overflow-y:auto;
+}
+.busq-card {
+  background:white; border-radius:12px; padding:12px 14px;
+  margin-bottom:8px; border-left:4px solid #0984e3;
+}
+.busq-card.baja { border-left-color:#94a3b8; }
+.busq-card-nombre { font-weight:800; font-size:14px; color:#0f172a; }
+.busq-card-dni { font-size:12px; color:#64748b; margin-top:1px; }
+.busq-card-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:8px;
+}
+.busq-card-chip {
+  background:#f0f8ff; border-radius:8px; padding:5px 8px;
+  font-size:11px; color:#0984e3; font-weight:600;
+}
+.busq-card-chip span { display:block; color:#64748b; font-weight:400; font-size:10px; }
+.busq-badge {
+  display:inline-block; border-radius:20px; padding:2px 9px;
+  font-size:10px; font-weight:700; margin-left:6px;
+}
+.busq-badge.activo { background:#dcfce7; color:#16a34a; }
+.busq-badge.baja   { background:#f1f5f9; color:#64748b; }
+.busq-empty { text-align:center; color:rgba(255,255,255,0.75); font-size:13px; padding:16px 0; }
+.busq-hint  { text-align:center; color:rgba(255,255,255,0.6); font-size:12px; padding:8px 0; }
+.btn-buscar-toggle {
+  background:rgba(255,255,255,0.18); border:none; color:white;
+  width:36px; height:36px; border-radius:10px; font-size:18px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition: background .15s;
+}
+.btn-buscar-toggle:hover { background:rgba(255,255,255,0.3); }
 </style>
 </head>
 <body>
@@ -678,13 +773,27 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
 <div id="screen-app" style="display:none">
   <div class="topbar">
     <div class="topbar-left">
-      <div class="topbar-avatar" id="tb-avatar">?</div>
+      <div class="topbar-avatar" id="tb-avatar" onclick="abrirModalFoto()" title="Cambiar foto de perfil">?</div>
       <div>
         <div class="topbar-name" id="tb-name">—</div>
         <div class="topbar-role" id="tb-role">—</div>
       </div>
     </div>
-    <button class="topbar-logout" onclick="logout()">Salir</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-buscar-toggle" onclick="toggleBusqueda()" title="Buscar alumno">🔍</button>
+      <button class="topbar-logout" onclick="logout()">Salir</button>
+    </div>
+  </div>
+  <!-- Barra búsqueda global -->
+  <div id="barra-busqueda-global">
+    <div class="busq-input-wrap">
+      <input class="busq-input" id="busq-input" type="text"
+        placeholder="Buscar por nombre o DNI..."
+        oninput="ejecutarBusquedaGlobal()"
+        autocomplete="off">
+      <button class="busq-close-btn" onclick="cerrarBusqueda()" title="Cerrar">✕</button>
+    </div>
+    <div id="busq-resultados"><div class="busq-hint">Escribí nombre o DNI para buscar</div></div>
   </div>
 
   <!-- PRECEPTOR -->
@@ -1822,7 +1931,15 @@ function login() {
   document.getElementById('screen-app').style.display = 'flex';
   document.getElementById('tb-name').textContent = usuario.nombre;
   document.getElementById('tb-role').textContent = usuario.rol.toLowerCase() === 'directora' ? 'Dirección' : 'Preceptor/a';
-  document.getElementById('tb-avatar').textContent = usuario.nombre[0].toUpperCase();
+  // Cargar foto de perfil desde localStorage
+  const fotoKey = 'foto_perfil_' + usuario.nombre;
+  const fotoGuardada = localStorage.getItem(fotoKey);
+  const avatarEl = document.getElementById('tb-avatar');
+  if (fotoGuardada) {
+    avatarEl.innerHTML = '<img src="' + fotoGuardada + '" alt="foto">';
+  } else {
+    avatarEl.textContent = usuario.nombre[0].toUpperCase();
+  }
 
   if (usuario.rol.toLowerCase() === 'directora') initDirectora();
   else initPreceptor();
@@ -7285,6 +7402,194 @@ async function agregarCurso() {
 // ARRANCAR
 // =============================================
 init();
+
+// ── FOTO DE PERFIL ──────────────────────────────────────
+function abrirModalFoto() {
+  if (!currentUser) return;
+  const modal = document.getElementById('modal-foto-perfil');
+  const circle = document.getElementById('foto-preview-circle');
+  const inicial = document.getElementById('foto-preview-inicial');
+  const nombre = document.getElementById('foto-modal-nombre');
+  const btnBorrar = document.getElementById('btn-borrar-foto');
+
+  nombre.textContent = currentUser.nombre;
+  const fotoKey = 'foto_perfil_' + currentUser.nombre;
+  const fotoGuardada = localStorage.getItem(fotoKey);
+
+  if (fotoGuardada) {
+    circle.innerHTML = '<img src="' + fotoGuardada + '" alt="foto">';
+    btnBorrar.style.display = 'block';
+  } else {
+    circle.innerHTML = '<span id="foto-preview-inicial">' + currentUser.nombre[0].toUpperCase() + '</span>';
+    btnBorrar.style.display = 'none';
+  }
+
+  modal.classList.add('open');
+}
+
+function cerrarModalFoto() {
+  document.getElementById('modal-foto-perfil').classList.remove('open');
+}
+
+function procesarFotoSeleccionada(event) {
+  const file = event.target.files[0];
+  if (!file || !currentUser) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // Redimensionar a max 300x300 para no saturar localStorage
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX = 300;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else        { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+
+      // Guardar en localStorage
+      const fotoKey = 'foto_perfil_' + currentUser.nombre;
+      localStorage.setItem(fotoKey, dataUrl);
+
+      // Actualizar avatar en topbar
+      const avatarEl = document.getElementById('tb-avatar');
+      avatarEl.innerHTML = '<img src="' + dataUrl + '" alt="foto">';
+
+      // Actualizar preview en modal
+      const circle = document.getElementById('foto-preview-circle');
+      circle.innerHTML = '<img src="' + dataUrl + '" alt="foto">';
+      document.getElementById('btn-borrar-foto').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  // Limpiar input para permitir re-seleccionar la misma foto
+  event.target.value = '';
+}
+
+function borrarFotoPerfil() {
+  if (!currentUser) return;
+  const fotoKey = 'foto_perfil_' + currentUser.nombre;
+  localStorage.removeItem(fotoKey);
+
+  // Restaurar inicial en topbar
+  const avatarEl = document.getElementById('tb-avatar');
+  avatarEl.textContent = currentUser.nombre[0].toUpperCase();
+
+  // Restaurar preview en modal
+  const circle = document.getElementById('foto-preview-circle');
+  circle.innerHTML = '<span>' + currentUser.nombre[0].toUpperCase() + '</span>';
+  document.getElementById('btn-borrar-foto').style.display = 'none';
+}
+
+// Cerrar modal tocando el fondo
+document.addEventListener('DOMContentLoaded', function() {
+  const mfp = document.getElementById('modal-foto-perfil');
+  if (mfp) mfp.addEventListener('click', function(e) {
+    if (e.target === this) cerrarModalFoto();
+  });
+});
+
+
+// ── BÚSQUEDA GLOBAL DE ALUMNOS ──────────────────────────────
+function toggleBusqueda() {
+  const barra = document.getElementById('barra-busqueda-global');
+  if (barra.classList.contains('abierta')) {
+    cerrarBusqueda();
+  } else {
+    barra.classList.add('abierta');
+    setTimeout(() => document.getElementById('busq-input').focus(), 350);
+  }
+}
+
+function cerrarBusqueda() {
+  const barra = document.getElementById('barra-busqueda-global');
+  barra.classList.remove('abierta');
+  document.getElementById('busq-input').value = '';
+  document.getElementById('busq-resultados').innerHTML = '<div class="busq-hint">Escribí nombre o DNI para buscar</div>';
+}
+
+function ejecutarBusquedaGlobal() {
+  const q = (document.getElementById('busq-input').value || '').trim().toLowerCase();
+  const cont = document.getElementById('busq-resultados');
+
+  if (q.length < 2) {
+    cont.innerHTML = '<div class="busq-hint">Escribí al menos 2 caracteres</div>';
+    return;
+  }
+
+  const alumnos = datos.alumnos || [];
+  const cursos  = datos.cursos  || [];
+
+  const resultados = alumnos.filter(a => {
+    const nombre = (a.nombre || '').toLowerCase();
+    const dni    = String(a.dni || '').toLowerCase();
+    return nombre.includes(q) || dni.includes(q);
+  }).slice(0, 15);
+
+  if (resultados.length === 0) {
+    cont.innerHTML = '<div class="busq-empty">Sin resultados para <strong>"' + document.getElementById('busq-input').value + '"</strong></div>';
+    return;
+  }
+
+  let html = '';
+  resultados.forEach(a => {
+    const curso    = cursos.find(c => c.id === a.idCurso);
+    const sedeInfo = curso ? (MAPA_SEDES[curso.preceptor] || { nombre: curso.preceptor || '—', turno: '' }) : { nombre: '—', turno: '' };
+    const activo   = a.activo === 'SI' || a.activo === true || a.activo === 'si';
+
+    let edadLabel = '';
+    if (a.fechaNacimiento) {
+      const edad = calcularEdad(a.fechaNacimiento);
+      if (edad !== null && edad >= 0) edadLabel = edad + ' años';
+    }
+
+    const sexo = (a.sexo || '').toString().trim().toUpperCase();
+    const sexoLabel = (sexo==='M'||sexo==='MASCULINO'||sexo==='VARON'||sexo==='VARÓN') ? '♂ Varón'
+                    : (sexo==='F'||sexo==='FEMENINO'||sexo==='MUJER') ? '♀ Mujer' : '—';
+
+    html +=
+      '<div class="busq-card ' + (activo ? '' : 'baja') + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div>' +
+            '<div class="busq-card-nombre">' + a.nombre +
+              '<span class="busq-badge ' + (activo ? 'activo' : 'baja') + '">' + (activo ? '✓ Activo' : '✗ Baja') + '</span>' +
+            '</div>' +
+            '<div class="busq-card-dni">DNI: ' + (a.dni || '—') + (edadLabel ? ' · ' + edadLabel : '') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="busq-card-grid">' +
+          '<div class="busq-card-chip"><span>Curso</span>' + (curso ? curso.nombre : '—') + '</div>' +
+          '<div class="busq-card-chip"><span>Sede</span>' + sedeInfo.nombre + '</div>' +
+          '<div class="busq-card-chip"><span>Turno</span>' + (sedeInfo.turno || '—') + '</div>' +
+          '<div class="busq-card-chip"><span>Sexo</span>' + sexoLabel + '</div>' +
+        '</div>' +
+      '</div>';
+  });
+
+  if (resultados.length === 15) {
+    html += '<div class="busq-hint">Mostrando los primeros 15 · Escribí más para filtrar</div>';
+  }
+
+  cont.innerHTML = html;
+}
 </script>
+
+<!-- Modal foto de perfil -->
+<div id="modal-foto-perfil">
+  <div class="foto-modal-box">
+    <div class="foto-modal-avatar-preview" id="foto-preview-circle">
+      <span id="foto-preview-inicial"></span>
+    </div>
+    <div class="foto-modal-title" id="foto-modal-nombre">Mi perfil</div>
+    <div class="foto-modal-sub">Tocá para elegir una foto desde tu dispositivo</div>
+    <input type="file" id="foto-input-file" accept="image/*" style="display:none" onchange="procesarFotoSeleccionada(event)">
+    <button class="foto-modal-btn primary" onclick="document.getElementById('foto-input-file').click()">📷 Elegir foto</button>
+    <button class="foto-modal-btn danger" id="btn-borrar-foto" onclick="borrarFotoPerfil()" style="display:none">🗑️ Quitar foto</button>
+    <button class="foto-modal-btn cancel" onclick="cerrarModalFoto()">Cancelar</button>
+  </div>
+</div>
 </body>
 </html>
