@@ -811,7 +811,7 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
       <button class="tab-btn" onclick="pTab('nuevo-alumno',this)" style="background:#16a34a;border-color:#16a34a;color:white">➕ Nuevo alumno</button>
       <button class="tab-btn" onclick="pTab('gestionar-alumnos',this)" style="background:#7c3aed;border-color:#7c3aed;color:white">⚙️ Gestionar</button>
       <button class="tab-btn" onclick="pTab('legajo-preceptor',this)" style="background:#0d9488;border-color:#0d9488;color:white">🗂️ Legajo</button>
-      <button class="tab-btn" onclick="window.open('https://alemontesdeocacens-tech.github.io/rite-cens451/','_blank')" style="background:#1a5c3a;border-color:#1a5c3a;color:white">📋 RITE</button>
+      <button class="tab-btn" onclick="abrirRite()" style="background:#1a5c3a;border-color:#1a5c3a;color:white">📋 RITE</button>
     </div>
 
     <div id="ptab-lista">
@@ -1220,7 +1220,7 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
       <button class="tab-btn" onclick="dTab('fechas',this)">📅 Por fechas</button>
       <button class="tab-btn" onclick="dTab('progresar',this)">🎓 Progresar</button>
       <button class="tab-btn" onclick="dTab('matricula',this)">👥 Matrícula</button>
-      <button class="tab-btn" onclick="window.open('https://alemontesdeocacens-tech.github.io/rite-cens451/','_blank')" style="background:#1a5c3a;border-color:#1a5c3a;color:white">📋 RITE</button>
+      <button class="tab-btn" onclick="abrirRite()" style="background:#1a5c3a;border-color:#1a5c3a;color:white">📋 RITE</button>
       <button class="tab-btn" onclick="dTab('docs',this)">📚 Documentos</button>
       <button class="tab-btn" onclick="dTab('justificaciones',this)">📝 Justificaciones</button>
       <button class="tab-btn" onclick="dTab('exportar',this)">📥 Exportar</button>
@@ -1656,7 +1656,8 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
       <button class="tab-btn" onclick="profTab('fechas',this)">🔍 Por fechas</button>
       <button class="tab-btn" onclick="profTab('justificaciones',this)">📝 Justificaciones</button>
       <button class="tab-btn" onclick="profTab('documentos',this)">📚 Documentos</button>
-      <button class="tab-btn" onclick="window.open('https://alemontesdeocacens-tech.github.io/rite-cens451/','_blank')" style="background:#1a5c3a;border-color:#1a5c3a;color:white">📋 RITE</button>
+      <button class="tab-btn" onclick="window.open('https://alemontesdeocacens-tech.github.io/rite-cens451/','_blank')" style="background:#1a5c3a;border-color:#1a5c3a;color:white">📋 RITE (cargar notas)</button>
+      <button class="tab-btn" onclick="window.open('https://alemontesdeocacens-tech.github.io/rite-cens451/?from=asistencia&view=informe-curso','_blank')" style="background:#0d9488;border-color:#0d9488;color:white">📊 Informe por curso</button>
     </div>
 
     <!-- TAB HISTORIAL (primero y activo por defecto) -->
@@ -1912,6 +1913,19 @@ function poblarLogin() {
 // =============================================
 // LOGIN
 // =============================================
+// Abre el sistema RITE, pasando el rol/nombre del usuario actual para
+// que el RITE pueda loguear automáticamente sin pedir la clave de nuevo.
+function abrirRite() {
+  const base = 'https://alemontesdeocacens-tech.github.io/rite-cens451/';
+  if (currentUser && currentUser.rol && currentUser.rol.toLowerCase() === 'directora') {
+    window.open(base + '?from=asistencia', '_blank');
+  } else if (currentUser && currentUser.nombre) {
+    window.open(base + '?from=asistencia&preceptor=' + encodeURIComponent(currentUser.nombre), '_blank');
+  } else {
+    window.open(base, '_blank');
+  }
+}
+
 function login() {
   const pass = document.getElementById('inp-pass').value;
   const err = document.getElementById('login-error');
