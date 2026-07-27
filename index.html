@@ -829,14 +829,18 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
       <div class="section-sub">Cambio de curso o baja de un alumno</div>
 
       <!-- Sub-tabs -->
-      <div style="display:flex;gap:8px;margin-bottom:18px">
+      <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
         <button id="gest-btn-cambio" onclick="mostrarSubTab('cambio')"
-          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #7c3aed;background:#7c3aed;color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+          style="flex:1;min-width:90px;padding:10px;border-radius:10px;border:1.5px solid #7c3aed;background:#7c3aed;color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
           🔄 Cambio de curso
         </button>
         <button id="gest-btn-baja" onclick="mostrarSubTab('baja')"
-          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+          style="flex:1;min-width:90px;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
           🗑 Dar de baja
+        </button>
+        <button id="gest-btn-migrar" onclick="mostrarSubTab('migrar')"
+          style="flex:1;min-width:90px;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+          🎓 Migrar ciclo
         </button>
         <button id="gest-btn-editar" onclick="mostrarSubTab('editar')"
           style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
@@ -900,6 +904,50 @@ select:focus, input:focus { border-color: var(--blue); background: white; }
         <div id="gest-baja-ok" style="display:none;background:var(--green-light);border:1px solid var(--green);border-radius:12px;padding:14px;text-align:center;margin-top:10px">
           <div style="font-size:28px;margin-bottom:6px">✅</div>
           <div style="font-weight:700;color:var(--green);font-size:14px" id="gest-baja-ok-txt"></div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB: MIGRAR CICLO LECTIVO -->
+      <div id="gest-subtab-migrar" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:4px">🎓 Asistente de migración</div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:14px">Elegí el curso de origen y el destino. Marcá los alumnos que <strong>pasan de año</strong> — los que no marques quedarán como baja.</div>
+          <label class="field-label">Curso origen (año actual)</label>
+          <select id="migrar-curso-origen" onchange="cargarAlumnosMigrar()" style="margin-bottom:12px">
+            <option value="">Seleccioná el curso...</option>
+          </select>
+          <label class="field-label">Curso destino (año siguiente)</label>
+          <select id="migrar-curso-destino" style="margin-bottom:14px">
+            <option value="">Seleccioná el curso destino...</option>
+          </select>
+          <button class="btn-primary" style="background:#0984e3;margin-bottom:0" onclick="cargarAlumnosMigrar()">🔍 Ver alumnos</button>
+        </div>
+
+        <div id="migrar-lista-wrap" style="display:none">
+          <div class="card" style="margin-bottom:12px;padding:12px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div style="font-size:13px;font-weight:800;color:#0f172a" id="migrar-titulo-lista">Alumnos</div>
+              <div style="display:flex;gap:8px">
+                <button onclick="marcarTodosMigrar(true)" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #0984e3;background:white;color:#0984e3;cursor:pointer;font-family:inherit;font-weight:700">✓ Todos</button>
+                <button onclick="marcarTodosMigrar(false)" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #dc2626;background:white;color:#dc2626;cursor:pointer;font-family:inherit;font-weight:700">✗ Ninguno</button>
+              </div>
+            </div>
+            <div id="migrar-lista-alumnos"></div>
+          </div>
+
+          <div class="card" style="background:#fef9c3;border:1px solid #fde68a;margin-bottom:12px;padding:12px 14px">
+            <div style="font-size:12px;color:#b45309;font-weight:700;margin-bottom:4px">⚠️ Antes de confirmar</div>
+            <div style="font-size:11px;color:#92400e">Los alumnos <strong>marcados ✓</strong> pasarán al curso destino.<br>Los <strong>no marcados</strong> quedarán como baja en el sistema.</div>
+          </div>
+
+          <div id="migrar-resumen" style="margin-bottom:12px;font-size:12px;color:#64748b;text-align:center"></div>
+          <button class="btn-primary" style="background:#16a34a" onclick="confirmarMigracion()">🎓 Confirmar migración</button>
+        </div>
+
+        <div id="migrar-ok" style="display:none;background:#dcfce7;border:1px solid #16a34a;border-radius:12px;padding:18px;text-align:center;margin-top:10px">
+          <div style="font-size:32px;margin-bottom:8px">✅</div>
+          <div style="font-weight:800;color:#16a34a;font-size:15px" id="migrar-ok-txt">Migración completada</div>
+          <div style="font-size:12px;color:#166534;margin-top:4px" id="migrar-ok-sub"></div>
         </div>
       </div>
 
@@ -5416,6 +5464,15 @@ function mostrarSubTab(cual) {
   document.getElementById('gest-subtab-cambio').style.display = cual==='cambio' ? 'block' : 'none';
   document.getElementById('gest-subtab-baja').style.display   = cual==='baja'   ? 'block' : 'none';
   document.getElementById('gest-subtab-editar').style.display = cual==='editar' ? 'block' : 'none';
+  document.getElementById('gest-subtab-migrar').style.display = cual==='migrar' ? 'block' : 'none';
+  // Botón migrar
+  const btnMigrar = document.getElementById('gest-btn-migrar');
+  if (btnMigrar) {
+    btnMigrar.style.background   = cual==='migrar' ? '#7c3aed' : 'white';
+    btnMigrar.style.borderColor  = cual==='migrar' ? '#7c3aed' : 'var(--border)';
+    btnMigrar.style.color        = cual==='migrar' ? 'white'   : 'var(--text2)';
+  }
+  if (cual === 'migrar') iniciarAsistenteMigracion();
   const btnC = document.getElementById('gest-btn-cambio');
   const btnB = document.getElementById('gest-btn-baja');
   const btnE = document.getElementById('gest-btn-editar');
@@ -7494,6 +7551,179 @@ function ejecutarBusquedaGlobal() {
   }
 
   cont.innerHTML = html;
+}
+
+// ── ASISTENTE MIGRACIÓN CICLO LECTIVO ───────────────────────────
+function iniciarAsistenteMigracion() {
+  const selOrigen  = document.getElementById('migrar-curso-origen');
+  const selDestino = document.getElementById('migrar-curso-destino');
+  const cursos = datos.cursos || [];
+
+  // Poblar selects si están vacíos
+  if (selOrigen.options.length <= 1) {
+    cursos.forEach(c => {
+      const oO = document.createElement('option');
+      oO.value = c.id; oO.textContent = c.nombre;
+      selOrigen.appendChild(oO);
+      const oD = document.createElement('option');
+      oD.value = c.id; oD.textContent = c.nombre;
+      selDestino.appendChild(oD);
+    });
+  }
+
+  // Reset
+  document.getElementById('migrar-lista-wrap').style.display = 'none';
+  document.getElementById('migrar-ok').style.display = 'none';
+}
+
+function cargarAlumnosMigrar() {
+  const idOrigen = document.getElementById('migrar-curso-origen').value;
+  if (!idOrigen) return;
+
+  const cursoOrigen = (datos.cursos || []).find(c => c.id === idOrigen);
+  const alumnos = (datos.alumnos || []).filter(a =>
+    a.idCurso === idOrigen && (a.activo === 'SI' || a.activo === true || a.activo === 'si')
+  );
+
+  if (alumnos.length === 0) {
+    showToast('No hay alumnos activos en ese curso', 'error');
+    return;
+  }
+
+  document.getElementById('migrar-titulo-lista').textContent =
+    cursoOrigen.nombre + ' — ' + alumnos.length + ' alumno' + (alumnos.length !== 1 ? 's' : '');
+
+  let html = '';
+  alumnos.forEach((a, idx) => {
+    html += '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9">' +
+      '<input type="checkbox" id="chk-migrar-' + idx + '" value="' + a.nombre + '" checked ' +
+      'onchange="actualizarResumenMigrar()" ' +
+      'style="width:18px;height:18px;accent-color:#0984e3;cursor:pointer;flex-shrink:0">' +
+      '<label for="chk-migrar-' + idx + '" style="font-size:13px;color:#0f172a;cursor:pointer;flex:1">' +
+        a.nombre +
+        '<span style="font-size:10px;color:#64748b;margin-left:6px">DNI: ' + (a.dni || '—') + '</span>' +
+      '</label>' +
+      '<span style="font-size:10px;font-weight:700;color:#16a34a" id="lbl-migrar-' + idx + '">✓ Pasa</span>' +
+    '</div>';
+  });
+
+  document.getElementById('migrar-lista-alumnos').innerHTML = html;
+
+  // Listener para actualizar label
+  alumnos.forEach((a, idx) => {
+    document.getElementById('chk-migrar-' + idx).addEventListener('change', function() {
+      const lbl = document.getElementById('lbl-migrar-' + idx);
+      lbl.textContent   = this.checked ? '✓ Pasa' : '✗ Baja';
+      lbl.style.color   = this.checked ? '#16a34a' : '#dc2626';
+    });
+  });
+
+  document.getElementById('migrar-lista-wrap').style.display = 'block';
+  document.getElementById('migrar-ok').style.display = 'none';
+  actualizarResumenMigrar();
+}
+
+function marcarTodosMigrar(marcar) {
+  const checks = document.querySelectorAll('[id^="chk-migrar-"]');
+  checks.forEach(function(chk, idx) {
+    chk.checked = marcar;
+    const lbl = document.getElementById('lbl-migrar-' + idx);
+    if (lbl) {
+      lbl.textContent = marcar ? '✓ Pasa' : '✗ Baja';
+      lbl.style.color = marcar ? '#16a34a' : '#dc2626';
+    }
+  });
+  actualizarResumenMigrar();
+}
+
+function actualizarResumenMigrar() {
+  const checks  = document.querySelectorAll('[id^="chk-migrar-"]');
+  const pasan   = Array.from(checks).filter(c => c.checked).length;
+  const bajas   = checks.length - pasan;
+  document.getElementById('migrar-resumen').innerHTML =
+    '<strong style="color:#16a34a">' + pasan + ' pasan de curso</strong>' +
+    ' &nbsp;·&nbsp; ' +
+    '<strong style="color:#dc2626">' + bajas + ' quedan como baja</strong>';
+}
+
+async function confirmarMigracion() {
+  const idOrigen   = document.getElementById('migrar-curso-origen').value;
+  const idDestino  = document.getElementById('migrar-curso-destino').value;
+
+  if (!idOrigen || !idDestino) {
+    showToast('Completá curso origen y destino', 'error'); return;
+  }
+  if (idOrigen === idDestino) {
+    showToast('El curso destino debe ser diferente al origen', 'error'); return;
+  }
+
+  const cursoDestino = (datos.cursos || []).find(c => c.id === idDestino);
+  if (!cursoDestino) { showToast('Curso destino inválido', 'error'); return; }
+
+  const checks  = document.querySelectorAll('[id^="chk-migrar-"]');
+  const alumnos = (datos.alumnos || []).filter(a =>
+    a.idCurso === idOrigen && (a.activo === 'SI' || a.activo === true || a.activo === 'si')
+  );
+
+  const pasan = Array.from(checks).filter(c => c.checked).length;
+  const bajas = checks.length - pasan;
+
+  const msgConfirm = '¿Confirmar migración? ' + pasan + ' alumnos pasan a ' + cursoDestino.nombre + ' y ' + bajas + ' quedan como baja.';
+  if (!confirm(msgConfirm)) return;
+
+  // Armar array de migraciones
+  const migraciones = [];
+  checks.forEach(function(chk, idx) {
+    const alumno = alumnos[idx];
+    if (!alumno) return;
+    migraciones.push({
+      nombre:         alumno.nombre,
+      idCursoOrigen:  idOrigen,
+      accion:         chk.checked ? 'pasar' : 'baja',
+      idCursoDestino: chk.checked ? idDestino : null,
+      cursoDestino:   chk.checked ? cursoDestino.nombre : null
+    });
+  });
+
+  mostrarGuardando('Migrando alumnos...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'migrarCicloLectivo', migraciones })
+    });
+
+    // Actualizar cache local
+    migraciones.forEach(function(m) {
+      const al = datos.alumnos.find(a => a.nombre === m.nombre && a.idCurso === idOrigen);
+      if (al) {
+        if (m.accion === 'pasar') {
+          al.idCurso = idDestino;
+          al.curso   = cursoDestino.nombre;
+          al.activo  = 'SI';
+        } else {
+          al.activo = 'NO';
+        }
+      }
+    });
+
+    ocultarGuardando();
+    document.getElementById('migrar-lista-wrap').style.display = 'none';
+    document.getElementById('migrar-ok-txt').textContent = '¡Migración completada!';
+    document.getElementById('migrar-ok-sub').textContent =
+      pasan + ' alumno' + (pasan !== 1 ? 's' : '') + ' pasaron a ' + cursoDestino.nombre +
+      (bajas > 0 ? ' · ' + bajas + ' dado' + (bajas !== 1 ? 's' : '') + ' de baja' : '');
+    document.getElementById('migrar-ok').style.display = 'block';
+
+    // Reset selects
+    document.getElementById('migrar-curso-origen').value  = '';
+    document.getElementById('migrar-curso-destino').value = '';
+
+  } catch(err) {
+    ocultarGuardando();
+    showToast('Error al migrar. Intentá de nuevo.', 'error');
+  }
 }
 </script>
 
