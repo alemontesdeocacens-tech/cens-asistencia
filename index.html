@@ -1734,6 +1734,22 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby6Cpk8yXUDPbIhVKcO0
 // =============================================
 let datos = { usuarios: [], cursos: [], alumnos: [] };
 let currentUser = null;
+let sesionToken = null;   // token firmado por el servidor; vive solo en memoria
+
+// Acciones de administración (requieren sesión de Dirección).
+// POST sin cabeceras personalizadas => no hay preflight y se puede leer la respuesta.
+async function apiAdmin(payload) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(Object.assign({}, payload, { token: sesionToken }))
+  });
+  const json = await res.json();
+  if (json.status !== 'ok') {
+    if (/No autorizado/.test(json.message || '')) showToast('Tu sesión venció. Volvé a ingresar.', 'error');
+    throw new Error(json.message || 'Error del servidor');
+  }
+  return json;
+}
 let attendance = {};
 let allRegistros = [];
 
@@ -1829,29 +1845,42 @@ function abrirRite() {
   }
 }
 
-function login() {
+let loginEnCurso = false;
+async function login() {
+  if (loginEnCurso) return;
   const pass = document.getElementById('inp-pass').value;
   const err = document.getElementById('login-error');
   err.style.display = 'none';
 
-  let usuario;
-  if (rolSeleccionado === 'directora') {
-    // Primero verificar si es el usuario Visitante (modo solo lectura)
-    const visitante = datos.usuarios.find(u => u.nombre.toLowerCase() === 'visitante' && u.rol.toLowerCase() === 'directora');
-    if (visitante && String(visitante.password) === pass) {
-      usuario = visitante;
-      usuario._soloLectura = true;
-    } else {
-      usuario = datos.usuarios.find(u => u.rol.toLowerCase() === 'directora' && u.nombre.toLowerCase() !== 'visitante');
-      if (!usuario || String(usuario.password) !== pass) { err.textContent = 'Contraseña incorrecta'; err.style.display = 'block'; return; }
-    }
-  } else {
-    const nombre = document.getElementById('sel-usuario').value;
-    if (!nombre) { err.textContent = 'Seleccioná tu nombre'; err.style.display = 'block'; return; }
-    usuario = datos.usuarios.find(u => u.nombre === nombre);
-    if (!usuario) { err.textContent = 'Usuario no encontrado'; err.style.display = 'block'; return; }
-    if (String(usuario.password) !== pass) { err.textContent = 'Contraseña incorrecta'; err.style.display = 'block'; return; }
+  const nombre = rolSeleccionado === 'directora' ? '' : document.getElementById('sel-usuario').value;
+  if (rolSeleccionado !== 'directora' && !nombre) {
+    err.textContent = 'Seleccioná tu nombre'; err.style.display = 'block'; return;
   }
+
+  loginEnCurso = true;
+  let respuesta;
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'login', rol: rolSeleccionado, nombre, password: pass })
+    });
+    respuesta = await res.json();
+  } catch (e) {
+    loginEnCurso = false;
+    err.textContent = 'No se pudo conectar. Revisá tu conexión e intentá de nuevo.';
+    err.style.display = 'block';
+    return;
+  }
+  loginEnCurso = false;
+  if (!respuesta || respuesta.status !== 'ok') {
+    err.textContent = (respuesta && respuesta.message) || 'Contraseña incorrecta';
+    err.style.display = 'block';
+    return;
+  }
+
+  const usuario = respuesta.usuario;           // { nombre, rol, soloLectura }
+  sesionToken = respuesta.token;
+  usuario._soloLectura = !!usuario.soloLectura;
 
   currentUser = usuario;
   document.getElementById('screen-inicio').style.display = 'none';
@@ -7203,16 +7232,8 @@ async function cambiarPasswordUsuario(idx, nombre, estaActivo) {
   if (!nueva) { showToast('Ingresá la nueva contraseña', 'error'); return; }
   mostrarGuardando('Guardando...');
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ action: 'editarUsuario', nombre, campo: 'password', valor: nueva })
-    });
-    await new Promise(r => setTimeout(r, 900));
+    await apiAdmin({ action: 'editarUsuario', nombre, campo: 'password', valor: nueva });
     ocultarGuardando();
-    // Actualizar en memoria
-    const u = datos.usuarios.find(u => u.nombre === nombre);
-    if (u) u.password = nueva;
     input.value = '';
     showToast(`✓ Contraseña de ${nombre.split(',')[0]} actualizada`, 'success');
   } catch(e) {
@@ -7226,12 +7247,7 @@ async function toggleActivoUsuario(idx, nombre, estadoActual) {
   const accion = nuevo === 'SI' ? 'activado' : 'desactivado';
   mostrarGuardando('Guardando...');
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ action: 'editarUsuario', nombre, campo: 'activo', valor: nuevo })
-    });
-    await new Promise(r => setTimeout(r, 900));
+    await apiAdmin({ action: 'editarUsuario', nombre, campo: 'activo', valor: nuevo });
     ocultarGuardando();
     const u = datos.usuarios.find(u => u.nombre === nombre);
     if (u) u.activo = nuevo;
@@ -7261,14 +7277,9 @@ async function agregarUsuario() {
 
   mostrarGuardando('Guardando usuario...');
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ action: 'agregarUsuario', usuario: { nombre, rol, password: pass, activo } })
-    });
-    await new Promise(r => setTimeout(r, 1000));
+    await apiAdmin({ action: 'agregarUsuario', usuario: { nombre, rol, password: pass, activo } });
     ocultarGuardando();
-    datos.usuarios.push({ nombre, rol, password: pass, activo });
+    datos.usuarios.push({ nombre, rol, activo });
     document.getElementById('cfg-usr-nombre').value = '';
     document.getElementById('cfg-usr-rol').value    = '';
     document.getElementById('cfg-usr-pass').value   = '';
@@ -7357,12 +7368,7 @@ async function guardarEdicionCurso(idx, idCurso) {
   if (!nuevoNombre) { showToast('El nombre no puede estar vacío', 'error'); return; }
   mostrarGuardando('Guardando curso...');
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ action: 'editarCurso', idCurso, nombre: nuevoNombre, preceptor: nuevoPrec, turno: nuevoTurno })
-    });
-    await new Promise(r => setTimeout(r, 1000));
+    await apiAdmin({ action: 'editarCurso', idCurso, nombre: nuevoNombre, preceptor: nuevoPrec, turno: nuevoTurno });
     ocultarGuardando();
     // Actualizar en memoria
     const c = datos.cursos.find(c => c.id === idCurso);
@@ -7392,12 +7398,7 @@ async function agregarCurso() {
 
   mostrarGuardando('Creando curso...');
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ action: 'agregarCurso', curso: { nombre, preceptor, turno } })
-    });
-    await new Promise(r => setTimeout(r, 1200));
+    await apiAdmin({ action: 'agregarCurso', curso: { nombre, preceptor, turno } });
     ocultarGuardando();
     // Agregar temporalmente en memoria con ID provisional
     const idProv = 'C' + String(Date.now()).slice(-4);
@@ -7727,12 +7728,7 @@ async function confirmarMigracion() {
 
   mostrarGuardando('Migrando alumnos...');
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'migrarCicloLectivo', migraciones })
-    });
+    await apiAdmin({ action: 'migrarCicloLectivo', migraciones });
 
     // Actualizar cache local
     migraciones.forEach(function(m) {
