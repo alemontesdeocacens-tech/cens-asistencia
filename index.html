@@ -1750,6 +1750,49 @@ async function apiAdmin(payload) {
   }
   return json;
 }
+
+// ── Todas las llamadas al servidor pasan por acá ────────────────────────
+// · Agrega la sesión (token) a cada pedido.
+// · Las escrituras devuelven una respuesta legible, para saber si el servidor las rechazó.
+// · Si la sesión venció, avisa y vuelve al inicio, en vez de mostrar "guardado" sin que se haya guardado.
+const _fetchOriginal = window.fetch.bind(window);
+const _LECTURAS_PUBLICAS = ['getDatos', 'getRegistros', 'getJustificaciones', 'getDocumentos'];   // las usan los profesores (sin login)
+let _avisandoSesion = false;
+function sesionVencida() {
+  if (_avisandoSesion) return;
+  _avisandoSesion = true;
+  alert('Tu sesión venció o ya no tenés permiso para esto. Lo último que hiciste NO se guardó en la planilla.\nVolvé a ingresar y repetí la carga.');
+  _avisandoSesion = false;
+  logout();
+}
+window.fetch = async function (url, opts) {
+  if (typeof url !== 'string' || url.indexOf(SCRIPT_URL) !== 0) return _fetchOriginal(url, opts);
+  opts = Object.assign({}, opts || {});
+  const esPost = String(opts.method || 'GET').toUpperCase() === 'POST';
+  let accion = '';
+  if (esPost) {
+    let body;
+    try { body = JSON.parse(opts.body); } catch (e) { return _fetchOriginal(url, opts); }
+    accion = body.action || '';
+    if (accion === 'login' || accion === 'logPregunta') return _fetchOriginal(url, opts);   // se manejan solos
+    if (sesionToken && !body.token) body.token = sesionToken;
+    opts.body = JSON.stringify(body);
+    delete opts.mode; delete opts.headers;          // pedido simple: permite leer la respuesta
+  } else {
+    const m = /[?&]action=([A-Za-z]+)/.exec(url); accion = m ? m[1] : '';
+    if (sesionToken) url += (url.indexOf('?') === -1 ? '?' : '&') + 'token=' + encodeURIComponent(sesionToken);
+  }
+  const res = await _fetchOriginal(url, opts);
+  if (esPost || _LECTURAS_PUBLICAS.indexOf(accion) === -1) {
+    let json = null;
+    try { json = await res.clone().json(); } catch (e) { /* no es JSON: se deja pasar */ }
+    if (json && json.status === 'error') {
+      if (sesionToken && /No autorizado/.test(json.message || '')) sesionVencida();    // solo si había una sesión abierta
+      if (esPost) throw new Error(json.message || 'El servidor rechazó el pedido');
+    }
+  }
+  return res;
+};
 let attendance = {};
 let allRegistros = [];
 
@@ -1832,16 +1875,24 @@ function poblarLogin() {
 // =============================================
 // LOGIN
 // =============================================
-// Abre el sistema RITE, pasando el rol/nombre del usuario actual para
-// que el RITE pueda loguear automáticamente sin pedir la clave de nuevo.
-function abrirRite() {
+// Abre RITE con un "pase" de un solo uso (dura 90 s) en el # de la URL.
+// RITE lo canjea por la identidad contra este servidor; la sesión de 12 h nunca sale de acá.
+async function abrirRite() {
   const base = 'https://alemontesdeocacens-tech.github.io/rite-cens451/';
-  if (currentUser && currentUser.rol && currentUser.rol.toLowerCase() === 'directora') {
-    window.open(base + '?from=asistencia', '_blank');
-  } else if (currentUser && currentUser.nombre) {
-    window.open(base + '?from=asistencia&preceptor=' + encodeURIComponent(currentUser.nombre), '_blank');
-  } else {
-    window.open(base, '_blank');
+  if (!currentUser || !sesionToken) { window.open(base, '_blank'); return; }            // sin sesión: RITE pedirá su propio ingreso
+  if (currentUser._soloLectura) { showToast('El modo visita no puede entrar a RITE.', 'error'); return; }
+  // La ventana se abre ya, dentro del toque del usuario, para que el navegador no la bloquee.
+  const ventana = window.open('about:blank', '_blank');
+  if (!ventana) { showToast('Permití las ventanas emergentes para abrir RITE.', 'error'); return; }
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'emitirPaseRite' }) });
+    const json = await res.json();
+    if (json.status !== 'ok' || !json.pase) throw new Error(json.message || 'Sin pase');
+    ventana.opener = null;
+    ventana.location.href = base + '#pase=' + encodeURIComponent(json.pase);
+  } catch (e) {
+    ventana.close();
+    showToast('No se pudo abrir RITE. Probá de nuevo.', 'error');
   }
 }
 
@@ -1881,6 +1932,11 @@ async function login() {
   const usuario = respuesta.usuario;           // { nombre, rol, soloLectura }
   sesionToken = respuesta.token;
   usuario._soloLectura = !!usuario.soloLectura;
+
+  loginEnCurso = true;
+  const datosOk = await cargarDatos();           // con sesión, el servidor incluye los datos personales
+  loginEnCurso = false;
+  if (!datosOk) showToast('No se pudieron cargar todos los datos. Si falta algo, recargá la página.', 'error');
 
   currentUser = usuario;
   document.getElementById('screen-inicio').style.display = 'none';
@@ -1966,6 +2022,8 @@ function mostrarToast(msg) {
 
 function logout() {
   currentUser = null;
+  sesionToken = null;
+  cargarDatos();                                  // reemplaza los datos en memoria por la versión sin datos personales
   document.getElementById('screen-app').style.display = 'none';
   document.getElementById('view-profesor').style.display = 'none';
   document.getElementById('screen-inicio').style.display = 'flex';
@@ -2128,7 +2186,7 @@ async function guardarLista() {
     showToast('✓ Lista guardada y enviada', 'success');
   } catch(e) {
     ocultarGuardando();
-    showToast('✓ Guardado. Sin conexión al servidor.', 'success');
+    showToast('⚠ No se pudo enviar la lista a la planilla. Revisá la conexión y volvé a guardar.', 'error');
   }
 
   renderHistorial();
@@ -7777,5 +7835,6 @@ async function confirmarMigracion() {
     <button class="foto-modal-btn cancel" onclick="cerrarModalFoto()">Cancelar</button>
   </div>
 </div>
+<script src="bruno.js"></script>
 </body>
 </html>
