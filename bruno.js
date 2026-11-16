@@ -11,8 +11,11 @@
 (function (global) {
   'use strict';
 
-  var CFG = { imgs: 'bruno/', umbralRiesgo: 75, maxLista: 8 };
+  var CFG = { imgs: 'bruno/', umbralRiesgo: 75, maxLista: 8,
+              regresoMinFaltas: 8,        // clases seguidas sin asistir para considerar que "volvió después de mucho tiempo" (≈ 3 semanas)
+              regresoVentanaDias: 5 };    // cuántos días después del regreso se lo sigue mencionando
   var rolForzado = null;                       // solo para pruebas
+  var CONT = { respuestas: [], avisos: [] };   // lo que se escribe en las hojas Bruno_Respuestas y Bruno_Avisos
 
   /* ───────────────────────── Texto ───────────────────────── */
   function sinTildes(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
@@ -146,12 +149,24 @@
   function regsDeCurso(idCurso) { return REG().filter(function (r) { return r.idCurso === idCurso; }); }
   function regHoy(idCurso) { var h = hoyApp(); return REG().filter(function (r) { return r.idCurso === idCurso && r.fecha === h; })[0]; }
   function normN(n) { return norm(String(n).replace(/,/g, ' ')); }
+  var CACHE_NORM = (typeof WeakMap !== 'undefined') ? new WeakMap() : null;
+  function estadoDe(r, nombre, nn) {
+    var e = r.data[nombre];
+    if (e !== undefined) return e;
+    var m = CACHE_NORM && CACHE_NORM.get(r);
+    if (!m) { m = {}; Object.keys(r.data).forEach(function (k) { m[normN(k)] = r.data[k]; }); if (CACHE_NORM) CACHE_NORM.set(r, m); }
+    return m[nn];
+  }
+  function diasEntre(f1, f2) {
+    var a = /^(\d{4})-(\d\d)-(\d\d)/.exec(f1 || ''), b = /^(\d{4})-(\d\d)-(\d\d)/.exec(f2 || '');
+    if (!a || !b) return NaN;
+    return Math.round((Date.UTC(+b[1], +b[2] - 1, +b[3]) - Date.UTC(+a[1], +a[2] - 1, +a[3])) / 86400000);
+  }
   // Misma regla que la app (calcularStatsAlumno): lo que no es presente/tardanza/RA cuenta como ausencia
   function statsAlumno(nombre, regs) {
     var p = 0, aus = 0, t = 0, ra = 0, nn = normN(nombre), ult = [];
     regs.forEach(function (r) {
-      var e = r.data[nombre];
-      if (e === undefined) { var k = Object.keys(r.data).filter(function (x) { return normN(x) === nn; })[0]; if (k) e = r.data[k]; }
+      var e = estadoDe(r, nombre, nn);
       if (e === 'Presente') p++;
       else if (e === 'Tardanza') t++;
       else if (e && e.indexOf('RA') === 0) ra++;
@@ -165,6 +180,46 @@
   function lista(arr, max) {
     max = max || CFG.maxLista;
     return arr.length > max ? arr.slice(0, max).join(', ') + ' y ' + (arr.length - max) + ' más' : arr.join(', ');
+  }
+
+  /* ───────────────────────── Respuestas y avisos propios ───────────────────────── */
+  var STOP_FRASE = {};
+  'de del la el los las un una unos unas que como para por con en y o a al se me mi mis es lo le si no cuando donde hay puedo quiero tengo'
+    .split(' ').forEach(function (w) { STOP_FRASE[w] = 1; });
+  function palabrasFrase(f) { return norm(f).split(' ').filter(function (w) { return w.length >= 3 && !STOP_FRASE[w]; }); }
+  function mismaPalabra(a, b) {                 // "licencia" ≈ "licencias"; "justificar" ≈ "justifico"
+    if (a === b) return true;
+    var m = Math.min(a.length, b.length);
+    if (m >= 4 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return true;
+    if (m >= 5 && lev1(a, b)) return true;
+    return m >= 6 && a.slice(0, 5) === b.slice(0, 5);
+  }
+  function setContenido(c) {
+    CONT.respuestas = ((c && c.respuestas) || []).map(function (r) {
+      return { frases: (r.frases || []).map(palabrasFrase).filter(function (p) { return p.length; }),
+               respuesta: String(r.respuesta || ''), tab: /^[a-z-]+$/.test(r.tab || '') ? r.tab : '' };
+    }).filter(function (r) { return r.frases.length && r.respuesta; });
+    CONT.avisos = ((c && c.avisos) || []).map(function (a) { return String(a.mensaje || ''); }).filter(Boolean);
+  }
+  // Gana la frase más larga (más específica) cuyas palabras estén todas en la pregunta
+  function respuestaPersonalizada(t) {
+    var tokens = t.split(' ').filter(Boolean), mejor = null, pts = 0;
+    CONT.respuestas.forEach(function (r) {
+      r.frases.forEach(function (f) {
+        if (f.length === 1 && tokens.length > 4) return;          // una sola palabra suelta no debe pisar preguntas largas
+        var ok = f.every(function (w) { return tokens.some(function (q) { return mismaPalabra(q, w); }); });
+        if (ok && f.length > pts) { mejor = r; pts = f.length; }
+      });
+    });
+    return mejor;
+  }
+  function listaAvisos() { return CONT.avisos.map(function (a) { return '• ' + a; }).join('\n'); }
+  function respAvisos() {
+    var bloques = [];
+    if (CONT.avisos.length) bloques.push('**Avisos** (' + CONT.avisos.length + ')\n' + listaAvisos());
+    var mom = textoMomentos(); if (mom.length) bloques.push(mom.join('\n'));
+    if (!bloques.length) return R('No tenés avisos ni novedades por ahora.', 'ok', []);
+    return R(bloques.join('\n\n'), 'ok', []);
   }
 
   /* ───────────────────────── Respuestas ───────────────────────── */
@@ -189,8 +244,16 @@
     var r = rol(), n = nombreUsuario();
     var quien = r === 'profesor' ? '' : (n ? ', ' + n : '');
     var t = saludoHora() + quien + '. Soy **Bruno**, el asistente de CENS Digital. ' +
-      'Puedo buscar alumnos, contarte la asistencia de hoy y explicarte cómo se hace cada cosa en la app. ¿Qué necesitás?';
-    return R(t, 'feliz', chipsBase());
+      'Puedo buscar alumnos, contarte la asistencia de hoy y explicarte cómo se hace cada cosa en la app.';
+    if (CONT.avisos.length) t += '\n\n📌 Tenés **' + CONT.avisos.length + '** aviso' + (CONT.avisos.length === 1 ? '' : 's') + ':\n' + listaAvisos();
+    var mom = textoMomentos();
+    if (mom.length) t += '\n\n' + mom.join('\n');
+    t += '\n\n¿Qué necesitás?';
+    var chips = chipsBase(), extra = [];
+    if (cumplesEn(0).length) extra.push({ l: 'Ideas para un saludo', q: '@m:cumple' });
+    if (regresos().length) extra.push({ l: 'Ideas de mensaje de aliento', q: '@m:regreso' });
+    if (extra.length) chips = extra.concat(chips).slice(0, 6);
+    return R(t, cumplesEn(0).length ? 'festejo' : 'feliz', chips);
   }
   function ayuda() {
     var r = rol(), l = ['Esto es lo que puedo hacer:'];
@@ -203,6 +266,8 @@
     } else {
       l.push('• **Asistencia de un curso**: escribí el curso, por ejemplo "quién faltó hoy en 2°B".');
     }
+    if (r !== 'profesor') l.push('• **Avisos** que te dejaron: escribí «avisos».');
+    l.push('• **RITE**: te explico qué es y lo abro.');
     l.push('• **Guías paso a paso** de la app: "cómo justifico una falta", "cómo doy de baja", etc.');
     return R(l.join('\n'), 'ok', chipsBase());
   }
@@ -338,6 +403,71 @@
     return R(l.join('\n'), 'ok', [{ l: 'Ver % por curso', tab: 'asistencia-curso' }]);
   }
 
+  /* ───────────────────────── Momentos: cumpleaños y regresos ───────────────────────── */
+  function cumplesEn(maxDias) {
+    if (rol() === 'profesor') return [];
+    var ids = {}; cursosVisibles().forEach(function (c) { ids[c.id] = 1; });
+    var now = new Date(), h0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()), out = [];
+    (D().alumnos || []).forEach(function (a) {
+      if (!activo(a) || !ids[a.idCurso]) return;
+      var m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(String(a.fechaNacimiento || '').trim()); if (!m) return;
+      var f = new Date(h0.getFullYear(), +m[2] - 1, +m[3]);
+      if (f < h0) f = new Date(h0.getFullYear() + 1, +m[2] - 1, +m[3]);
+      var dias = Math.round((f - h0) / 86400000);
+      if (dias <= maxDias) out.push({ a: a, dias: dias, f: f });
+    });
+    return out.sort(function (x, y) { return x.dias - y.dias; });
+  }
+  // Alumnos que volvieron a clase después de muchas clases seguidas sin asistir (o que vinieron por primera vez tras ese tiempo)
+  function regresos() {
+    if (rol() === 'profesor') return [];
+    var out = [], hoy = hoyApp(), cursos = {}, porCurso = {};
+    cursosVisibles().forEach(function (c) { cursos[c.id] = 1; });
+    REG().forEach(function (r) { if (cursos[r.idCurso]) (porCurso[r.idCurso] = porCurso[r.idCurso] || []).push(r); });
+    Object.keys(porCurso).forEach(function (k) { porCurso[k].sort(function (a, b) { return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); }); });
+    (D().alumnos || []).forEach(function (a) {
+      if (!activo(a) || !cursos[a.idCurso]) return;
+      var regs = porCurso[a.idCurso] || [], nn = normN(a.nombre), run = 0, vio = false, cand = null;
+      for (var i = 0; i < regs.length; i++) {
+        var e = estadoDe(regs[i], a.nombre, nn);
+        if (e === undefined) continue;                         // todavía no figuraba en esa lista
+        if (e === 'Presente' || e === 'Tardanza' || e.indexOf('RA') === 0) {
+          if (run >= CFG.regresoMinFaltas) cand = { a: a, fecha: regs[i].fecha, faltas: run, primera: !vio };
+          run = 0; vio = true;
+        } else run++;
+      }
+      if (cand) { var d = diasEntre(cand.fecha, hoy); if (d >= 0 && d <= CFG.regresoVentanaDias) out.push(cand); }
+    });
+    return out.sort(function (x, y) { return x.fecha < y.fecha ? 1 : (x.fecha > y.fecha ? -1 : 0); });
+  }
+  function cuantas(n, uno, varios) { return n === 1 ? uno : varios; }
+  function textoMomentos() {
+    var l = [], cu = cumplesEn(0), re = regresos();
+    if (cu.length) {
+      var nombres = cu.slice(0, 10).map(function (x) { return '**' + titulo(x.a.nombre) + '** (' + x.a.curso + ')'; });
+      l.push('🎂 Hoy cumple' + (cu.length === 1 ? '' : 'n') + ' años: ' + nombres.join(', ') + (cu.length > 10 ? ' y ' + (cu.length - 10) + ' más' : '') + '. Un saludo tuyo le' + (cu.length === 1 ? '' : 's') + ' va a hacer bien.');
+    }
+    if (re.length) {
+      l.push('🌱 ' + cuantas(re.length, 'Volvió a clases un estudiante', 'Volvieron a clases ' + re.length + ' estudiantes') + ' después de mucho tiempo:');
+      re.slice(0, 8).forEach(function (x) {
+        l.push('• **' + titulo(x.a.nombre) + '** (' + x.a.curso + ') ' + (x.primera ? 'vino por primera vez' : 'volvió') + ' el ' + ddmm(x.fecha) + ' tras ' + x.faltas + ' clases sin asistir.');
+      });
+      if (re.length > 8) l.push('y ' + (re.length - 8) + ' más.');
+      l.push('Un mensaje de aliento puede ayudar a que se quede.');
+    }
+    return l;
+  }
+  var FRASES = {
+    cumple: ['¡Feliz cumpleaños! Que tengas un día muy lindo.', 'Hoy es tu día: que lo disfrutes. ¡Un abrazo de todo el equipo de la escuela!', 'Un año más de camino. ¡Felicidades!'],
+    regreso: ['¡Qué alegría verte de nuevo en clase! Acá estamos para acompañarte.', 'Nos alegra que hayas vuelto. Si necesitás ayuda para ponerte al día, contá con nosotros.', 'Volver también es avanzar: cada clase suma, y acá tenés a tu escuela.']
+  };
+  function respSugerencias(tipo) {
+    var l = [tipo === 'cumple' ? '**Ideas para un saludo de cumpleaños**' : '**Ideas para un mensaje de aliento**'];
+    FRASES[tipo].forEach(function (f, i) { l.push((i + 1) + '. ' + f); });
+    l.push('Podés usarlas tal cual o cambiarlas con tus palabras.');
+    return R(l.join('\n'), 'feliz', []);
+  }
+
   function respCumples() {
     var r = rol();
     if (r === 'profesor') return R('Los cumpleaños los ven Dirección y Preceptoría, porque dependen de los cursos a cargo.', 'nose', []);
@@ -364,6 +494,8 @@
   }
 
   /* ───────────────────────── Guías paso a paso ───────────────────────── */
+  var RITE_QUE_ES = '**RITE** es el *Registro Institucional de Trayectorias Educativas*: el sistema donde se registran y consultan las trayectorias de los estudiantes. Es una aplicación aparte de CENS Digital, hecha especialmente para ese fin.';
+  var RITE_LIMITE = '\nTodavía no puedo mostrarte datos de RITE desde acá: para verlos, entrá a la aplicación.';
   var G = [
     { id: 'lista', kw: /(tom|pas|carg|guard|envi|registr|hag|mand)\w*( la| una)? lista|(marc|registr|carg|pas)\w*( la)? asistencia/,
       roles: { preceptor: ['lista', '**Tomar lista**\n1. Entrá a **📋 Tomar lista**.\n2. Elegí el **curso** y la **fecha**.\n3. Marcá a cada estudiante (presente, ausente, tardanza o retiro anticipado). Arriba ves los contadores.\n4. Tocá **💾 Guardar y enviar lista**.\nSi la querés en papel, usá **📄 Descargar PDF de la lista**.'] } },
@@ -414,8 +546,11 @@
       roles: {
         preceptor: ['historial', 'En **📊 Historial** ves las listas que guardaste vos, con presentes, ausentes y porcentaje.'],
         profesor: ['historial', '**Historial por día**\nEntrá a **📋 Historial**, elegí el **curso** y la **fecha** para ver la asistencia de ese día.'] } },
-    { id: 'rite', kw: /\brite\b|trayectoria|calificacion|notas del alumn/,
-      roles: { preceptor: ['rite', 'El botón **📋 RITE** abre el sistema de trayectorias y calificaciones. Por ahora Bruno no consulta datos de ahí.'] } },
+    { id: 'rite', kw: /\brite\b|trayectoria|registro institucional|calificacion|\bnotas?\b/,
+      roles: {
+        preceptor: ['rite', RITE_QUE_ES + '\nPodés abrirla con el botón **📋 RITE**.' + RITE_LIMITE],
+        directora: ['rite', RITE_QUE_ES + '\nPodés abrirla con el botón **📋 RITE**.' + RITE_LIMITE],
+        profesor: ['rite', RITE_QUE_ES + '\nPara ingresar usá los botones de RITE de tu pantalla.' + RITE_LIMITE] } },
     { id: 'matricula', kw: /matricula/,
       roles: { directora: ['matricula', '**Matrícula**\nEn **👥 Matrícula** ves los alumnos activos por sexo, **por curso** o **por sede**. Con **🔍 Buscar** encontrás a alguien por nombre o DNI, y podés bajar el PDF.'] } },
     { id: 'exportar', kw: /export\w+|excel|descargar (todo|los datos)/,
@@ -460,7 +595,10 @@
     buscar: /(es alumn|es estudiante|alumno|alumna|figura|esta anotad|esta inscript|esta en|en que curso|que curso|de que curso|cursa|buscar|busca|buscame|encontra|datos de|info de|informacion de|quien es|existe|esta registrad)/,
     misCursos: /(mis cursos|que cursos tengo|cursos a mi cargo|cuales son mis cursos|mi curso)/,
     como: /\b(como|donde|en donde|de que forma|pasos|paso a paso|se puede|puedo|quiero|necesito|tengo que|hay que|explicame|explicar|ensename|indicame|que hago)\b/,
-    pedirNombre: /^(buscar|busca|buscame|encontrar)( un| una)?( alumn[oa]| estudiante)?$/
+    pedirNombre: /^(buscar|busca|buscame|encontrar)( un| una)?( alumn[oa]| estudiante)?$/,
+    avisos: /\b(aviso|avisos|novedad|novedades|recordatorio|recordatorios)\b/,
+    alientoCumple: /(saludo.*cumple|cumple.*saludo|que le (digo|escribo|mando).*cumple|felicitar)/,
+    alientoRegreso: /(mensaje.*(aliento|animo)|palabras de aliento|aliento|animar a|que le (digo|escribo|mando))/
   };
 
   function desconocida() {
@@ -474,6 +612,8 @@
     if (!texto) return ayuda();
 
     // Selecciones de los botones: @a:ID (ficha) y @f:ID (faltas)
+    var sug = /^@m:(cumple|regreso)$/.exec(texto);
+    if (sug) return respSugerencias(sug[1]);
     var sel = /^@([af]):(.+)$/.exec(texto);
     if (sel) {
       var al = (D().alumnos || []).filter(function (a) { return String(a.id) === sel[2]; })[0];
@@ -489,9 +629,17 @@
     if (RX.quien.test(t)) return ayuda();
     if (RX.pedirNombre.test(t)) return R('Escribime el apellido y el nombre, por ejemplo **García Juan**. Si no sabés cómo se escribe, con el apellido alcanza.', 'pensando', []);
 
+    // Lo que se escribió en la hoja Bruno_Respuestas tiene prioridad sobre las respuestas incorporadas
+    var pers = respuestaPersonalizada(t);
+    if (pers) return R(pers.respuesta, 'ok', pers.tab ? [{ l: 'Abrir esa pestaña', tab: pers.tab }] : []);
+    if (RX.avisos.test(t) && nTok <= 5) return respAvisos();
+    if (r !== 'profesor' && RX.alientoCumple.test(t)) return respSugerencias('cumple');
+    if (r !== 'profesor' && RX.alientoRegreso.test(t)) return respSugerencias('regreso');
+
     // "¿Cómo hago…?" + tema conocido → guía paso a paso
     var g = guiaPara(t);
     if (g && RX.como.test(t)) return respGuia(g, r);
+    if (g && g.id === 'rite') return respGuia(g, r);                 // RITE, trayectorias o notas: siempre la explicación de RITE
 
     if (RX.cumples.test(t)) return respCumples();
     if (RX.listaHoy.test(t)) return respListaHoy();
@@ -548,7 +696,7 @@
   }
 
   /* ───────────────────────── Interfaz ───────────────────────── */
-  var UI = { fab: null, panel: null, msgs: null, input: null, cara: null, teaser: null, firma: null, abierto: false, saludado: false, escribiendo: null };
+  var UI = { fab: null, panel: null, msgs: null, input: null, cara: null, teaser: null, badge: null, firma: null, abierto: false, saludado: false, escribiendo: null, avisosVistos: false, cargaId: 0, nov: 0 };
   var CARAS = { avatar: 'avatar', feliz: 'feliz', pensando: 'pensando', sorpresa: 'sorpresa', ok: 'ok', nose: 'nose', festejo: 'festejo' };
 
   function src(cara) { return CFG.imgs + (CARAS[cara] || 'feliz') + '.webp'; }
@@ -556,6 +704,7 @@
   var CSS = [
     '#bruno-fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:64px;height:64px;border-radius:50%;border:3px solid var(--white,#fff);background:var(--white,#fff);padding:0;cursor:pointer;z-index:250;overflow:hidden;display:none;box-shadow:0 6px 20px rgba(60,40,10,.28);transition:transform .15s ease}',
     '#bruno-fab:hover{transform:scale(1.06)}',
+    '#bruno-badge{position:fixed;right:10px;bottom:calc(68px + env(safe-area-inset-bottom,0px));min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#dc2626;color:#fff;font-size:13px;font-weight:700;line-height:22px;text-align:center;border:2px solid #fff;z-index:251;display:none;pointer-events:none;box-sizing:border-box}',
     '#bruno-fab img,#bruno-cara{display:block;width:100%;height:100%;object-fit:cover}',
     '#bruno-teaser{position:fixed;right:90px;bottom:calc(28px + env(safe-area-inset-bottom,0px));max-width:220px;background:var(--white,#fff);color:var(--text,#2b2118);border:1px solid var(--border,#e7d5c0);border-radius:14px 14px 4px 14px;padding:9px 13px;font-size:14px;line-height:1.35;z-index:250;display:none;box-shadow:0 6px 18px rgba(60,40,10,.18)}',
     '#bruno-panel{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));width:380px;max-width:calc(100vw - 24px);height:520px;max-height:calc(100vh - 130px);height:min(580px,calc(100dvh - 130px));display:none;flex-direction:column;background:var(--bg,#fdf6ed);border:1px solid var(--border,#e7d5c0);border-radius:18px;box-shadow:0 14px 44px rgba(60,40,10,.32);z-index:260;overflow:hidden;font-family:inherit}',
@@ -616,7 +765,8 @@
     inp.appendChild(UI.input); inp.appendChild(env);
 
     UI.panel.appendChild(head); UI.panel.appendChild(UI.msgs); UI.panel.appendChild(inp);
-    document.body.appendChild(UI.fab); document.body.appendChild(UI.teaser); document.body.appendChild(UI.panel);
+    UI.badge = el('div'); UI.badge.id = 'bruno-badge'; UI.badge.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(UI.fab); document.body.appendChild(UI.badge); document.body.appendChild(UI.teaser); document.body.appendChild(UI.panel);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && UI.abierto) cerrar(); });
   }
 
@@ -687,25 +837,56 @@
 
   function abrir() {
     if (!UI.panel) return;
-    UI.abierto = true; UI.panel.classList.add('abierto'); UI.teaser.style.display = 'none';
-    if (!UI.saludado) { UI.saludado = true; agregarBruno(bienvenida()); }
+    UI.abierto = true; UI.panel.classList.add('abierto'); UI.teaser.style.display = 'none'; UI.avisosVistos = true; actualizarInsignia();
+    if (!UI.saludado) { UI.saludado = true; recalcularNovedades(); agregarBruno(bienvenida()); }
     if (global.matchMedia && !global.matchMedia('(max-width:600px)').matches) UI.input.focus();
   }
-  function cerrar() { if (!UI.panel) return; UI.abierto = false; UI.panel.classList.remove('abierto'); setCara('avatar'); }
+  function cerrar() { if (!UI.panel) return; UI.abierto = false; actualizarInsignia(); UI.panel.classList.remove('abierto'); setCara('avatar'); }
 
+  function actualizarInsignia() {
+    if (!UI.badge) return;
+    var ver = UI.nov > 0 && !UI.avisosVistos && !UI.abierto && UI.fab && UI.fab.style.display === 'block';
+    UI.badge.style.display = ver ? 'block' : 'none';
+    if (ver) UI.badge.textContent = UI.nov;
+  }
+  // Trae las respuestas y avisos de las hojas. Si falla, Bruno sigue con lo que ya sabe.
+  function cargarContenido(id) {
+    CONT.respuestas = []; CONT.avisos = [];
+    if (typeof SCRIPT_URL === 'undefined' || typeof fetch !== 'function') return Promise.resolve();
+    return fetch(SCRIPT_URL + '?action=getBrunoContenido')
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (id === UI.cargaId && j && j.status === 'ok') setContenido(j); })
+      .catch(function () { /* sin contenido propio */ });
+  }
+  function recalcularNovedades() {              // avisos de la hoja + cumpleaños de hoy + regresos (cada uno suma 1)
+    UI.nov = CONT.avisos.length + (cumplesEn(0).length ? 1 : 0) + (regresos().length ? 1 : 0);
+  }
   function reiniciar() {
-    UI.msgs.innerHTML = ''; UI.saludado = false; cerrar();
+    UI.msgs.innerHTML = ''; UI.saludado = false; UI.avisosVistos = false; UI.nov = 0; cerrar();
+    UI.teaser.textContent = '¡Hola! Soy Bruno. ¿Te ayudo con algo?';
     UI.teaser.style.display = 'block';
     setTimeout(function () { if (!UI.abierto) UI.teaser.style.display = 'none'; }, 6000);
+    var id = ++UI.cargaId;
+    setTimeout(function () { if (id === UI.cargaId) { recalcularNovedades(); actualizarInsignia(); } }, 3500);   // por si los datos llegan más tarde
+    cargarContenido(id).then(function () {
+      if (id !== UI.cargaId) return;
+      recalcularNovedades(); actualizarInsignia();
+      if (UI.nov > 0 && !UI.abierto) {
+        UI.teaser.textContent = 'Tenés ' + UI.nov + ' novedad' + (UI.nov === 1 ? '' : 'es') + '. ¿Las vemos?';
+        UI.teaser.style.display = 'block';
+        setTimeout(function () { if (!UI.abierto) UI.teaser.style.display = 'none'; }, 9000);
+      }
+    });
   }
 
   // Muestra u oculta a Bruno según haya o no una sesión abierta en la app
   function sincronizar() {
     var activa = visible('screen-app'), r = activa ? rol() : null;
-    if (!r) { UI.fab.style.display = 'none'; UI.teaser.style.display = 'none'; if (UI.abierto) cerrar(); UI.firma = null; return; }
+    if (!r) { UI.fab.style.display = 'none'; UI.teaser.style.display = 'none'; UI.badge.style.display = 'none'; if (UI.abierto) cerrar(); UI.firma = null; UI.cargaId++; CONT.respuestas = []; CONT.avisos = []; return; }
     var firma = r + '|' + nombreUsuario();
     if (firma !== UI.firma) { UI.firma = firma; reiniciar(); }
     UI.fab.style.display = 'block';
+    actualizarInsignia();
   }
 
   function iniciar() {
@@ -717,7 +898,7 @@
 
   global.Bruno = {
     responder: responder, bienvenida: bienvenida, iniciar: iniciar, config: CFG,
-    _t: { STOP: STOP, fmt: fmt, esc: esc, norm: norm, parseCurso: parseCurso, tokensNombre: tokensNombre, buscarAlumnos: buscarAlumnos, statsAlumno: statsAlumno, forzarRol: function (r) { rolForzado = r; } }
+    _t: { regresos: regresos, cumplesEn: cumplesEn, textoMomentos: textoMomentos, setContenido: setContenido, STOP: STOP, fmt: fmt, esc: esc, norm: norm, parseCurso: parseCurso, tokensNombre: tokensNombre, buscarAlumnos: buscarAlumnos, statsAlumno: statsAlumno, forzarRol: function (r) { rolForzado = r; } }
   };
 
   if (typeof document !== 'undefined') {
